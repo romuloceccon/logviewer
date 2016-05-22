@@ -12,11 +12,15 @@ class ScreenBuffer(object):
         def message(self):
             return self._message
 
-    def __init__(self, message_driver):
+    def __init__(self, message_driver, step_size, buffer_size=None,
+            low_buffer_threshold=None):
         self._message_driver = message_driver
-        self._buffer_size = 5
-        self._low_buffer_threshold = 2
-        self._step_size = 2
+
+        self._step_size = step_size
+        self._buffer_size = buffer_size \
+            if not buffer_size is None else step_size * 5
+        self._low_buffer_threshold = low_buffer_threshold \
+            if not low_buffer_threshold is None else step_size
 
         n = self._buffer_size + self._step_size
         self._lines = self._fetch_lines(None, False, n)
