@@ -51,8 +51,10 @@ class ScreenBuffer(object):
         self._set_position(self._position - self._step_size)
 
     def move_forward(self):
+        # To be symetric with move_backward we need to check the number of lines
+        # after the last line of the *next* page, and not of the current one.
         hi_threshold = len(self._lines) - self._low_buffer_threshold
-        if self._position + self._step_size >= hi_threshold:
+        if self._position + 2 * self._step_size >= hi_threshold:
             new_lines = self._fetch_lines(self._lines[-1].id, False,
                 self._buffer_size)
             self._lines = self._lines + new_lines

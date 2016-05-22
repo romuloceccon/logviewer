@@ -117,12 +117,16 @@ class ScreenBufferTest(unittest.TestCase):
         msg = MagicMock()
         msg.get_records = Mock()
 
-        msg.get_records.return_value = self._get_line_range(94, 7)
+        msg.get_records.return_value = self._get_line_range(91, 10)
         buf = ScreenBuffer(msg)
 
         buf.move_backward()
+        buf.move_backward()
 
         msg.get_records.return_value = self._get_line_range(101, 5)
+        # After the next call position would be at 97. More records need to be
+        # fetched because there would be only two lines past the current window
+        # (99 and 100).
         buf.move_forward()
 
         self.assertEqual(2, msg.get_records.call_count)
@@ -130,6 +134,7 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual((100, False, 5), msg.get_records.call_args_list[1][0])
         msg.get_records.reset_mock()
 
+        buf.move_forward()
         buf.move_forward()
         cur = buf.get_current_lines()
         self.assertEqual(2, len(cur))
