@@ -4,8 +4,11 @@ from unittest.mock import Mock, MagicMock
 from screen_buffer import ScreenBuffer
 
 class ScreenBufferTest(unittest.TestCase):
-    def _get_line_range(self, begin, count):
-        return [{ 'id': i, 'message': str(i) } for i in range(begin, begin + count)]
+    def _get_line_range(self, begin, count, desc=True):
+        result = [{ 'id': i, 'message': str(i) } for i in range(begin, begin + count)]
+        if desc:
+            result.reverse()
+        return result
 
     def test_should_initialize_screen_buffer(self):
         msg = MagicMock()
@@ -18,7 +21,7 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual('99', cur[0].message)
         self.assertEqual('100', cur[1].message)
 
-        msg.get_records.assert_called_once_with(None, False, 7)
+        msg.get_records.assert_called_once_with(None, True, 7)
 
     def test_should_initialize_screen_buffer_with_less_lines_than_buffer_size(self):
         msg = MagicMock()
@@ -52,7 +55,7 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual('97', cur[0].message)
         self.assertEqual('98', cur[1].message)
 
-        msg.get_records.assert_called_once_with(None, False, 7)
+        msg.get_records.assert_called_once_with(None, True, 7)
 
     def test_should_move_backward_after_initializing_with_less_lines_than_step_size(self):
         msg = MagicMock()
@@ -82,7 +85,7 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual('97', cur[0].message)
         self.assertEqual('98', cur[1].message)
 
-        msg.get_records.assert_called_once_with(None, False, 7)
+        msg.get_records.assert_called_once_with(None, True, 7)
 
     def test_should_move_forward_without_new_records(self):
         msg = MagicMock()
@@ -111,7 +114,7 @@ class ScreenBufferTest(unittest.TestCase):
         buf.move_backward()
 
         self.assertEqual(2, msg.get_records.call_count)
-        self.assertEqual((None, False, 8), msg.get_records.call_args_list[0][0])
+        self.assertEqual((None, True, 8), msg.get_records.call_args_list[0][0])
         self.assertEqual((93, True, 6), msg.get_records.call_args_list[1][0])
         msg.get_records.reset_mock()
 
@@ -134,14 +137,14 @@ class ScreenBufferTest(unittest.TestCase):
         buf.move_backward()
         buf.move_backward()
 
-        msg.get_records.return_value = self._get_line_range(101, 8)
+        msg.get_records.return_value = self._get_line_range(101, 8, False)
         # After the next call position would be at 97. More records need to be
         # fetched because there would be only two lines past the current window
         # (99 and 100).
         buf.move_forward()
 
         self.assertEqual(2, msg.get_records.call_count)
-        self.assertEqual((None, False, 10), msg.get_records.call_args_list[0][0])
+        self.assertEqual((None, True, 10), msg.get_records.call_args_list[0][0])
         self.assertEqual((100, False, 8), msg.get_records.call_args_list[1][0])
         msg.get_records.reset_mock()
 

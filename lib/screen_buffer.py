@@ -23,13 +23,16 @@ class ScreenBuffer(object):
             if not low_buffer_threshold is None else step_size
 
         n = self._buffer_size + self._step_size
-        self._lines = self._fetch_lines(None, False, n)
+        self._lines = self._fetch_lines(None, True, n)
 
         self._set_position(len(self._lines) - self._step_size)
 
     def _fetch_lines(self, start, desc, count):
-        return [ScreenBuffer.Line(x) for x in
+        result = [ScreenBuffer.Line(x) for x in
             self._message_driver.get_records(start, desc, count)]
+        if desc:
+            result.reverse()
+        return result
 
     def _set_position(self, pos):
         p_min, p_max = 0, len(self._lines) - self._step_size
