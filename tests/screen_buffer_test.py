@@ -20,6 +20,17 @@ class ScreenBufferTest(unittest.TestCase):
 
         msg.get_records.assert_called_once_with(None, False, 7)
 
+    def test_should_initialize_screen_buffer_with_less_lines_than_buffer_size(self):
+        msg = MagicMock()
+        msg.get_records = Mock(return_value=self._get_line_range(1, 3))
+
+        buf = ScreenBuffer(msg)
+
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('2', cur[0].message)
+        self.assertEqual('3', cur[1].message)
+
     def test_should_move_buffer_backward(self):
         msg = MagicMock()
         msg.get_records = Mock(return_value=self._get_line_range(94, 7))
@@ -33,6 +44,20 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual('98', cur[1].message)
 
         msg.get_records.assert_called_once_with(None, False, 7)
+
+    def test_should_move_backward_after_initializing_with_less_lines_than_step_size(self):
+        msg = MagicMock()
+        msg.get_records = Mock()
+
+        msg.get_records.return_value = self._get_line_range(2, 1)
+        buf = ScreenBuffer(msg)
+
+        msg.get_records.return_value = self._get_line_range(1, 1)
+        buf.move_backward()
+
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('1', cur[0].message)
 
     def test_should_move_buffer_forward(self):
         msg = MagicMock()
@@ -49,6 +74,20 @@ class ScreenBufferTest(unittest.TestCase):
 
         msg.get_records.assert_called()
         self.assertEqual((None, False, 7), msg.get_records.call_args_list[0][0])
+
+    def test_should_move_forward_without_new_records(self):
+        msg = MagicMock()
+        msg.get_records = Mock()
+
+        msg.get_records.return_value = self._get_line_range(94, 7)
+        buf = ScreenBuffer(msg)
+
+        msg.get_records.return_value = []
+        buf.move_forward()
+
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('99', cur[0].message)
 
     def test_should_get_more_records_when_buffer_is_low_moving_backward(self):
         msg = MagicMock()

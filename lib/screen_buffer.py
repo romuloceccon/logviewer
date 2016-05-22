@@ -21,11 +21,20 @@ class ScreenBuffer(object):
         n = self._buffer_size + self._step_size
         self._lines = self._fetch_lines(None, False, n)
 
-        self._position = self._buffer_size
+        self._set_position(len(self._lines) - self._step_size)
 
     def _fetch_lines(self, start, desc, count):
         return [ScreenBuffer.Line(x) for x in
             self._message_driver.get_records(start, desc, count)]
+
+    def _set_position(self, pos):
+        p_min, p_max = 0, len(self._lines) - self._step_size
+        if pos < p_min:
+            self._position = p_min
+        elif pos > p_max:
+            self._position = p_max
+        else:
+            self._position = pos
 
     def get_current_lines(self):
         p = self._position
@@ -33,16 +42,19 @@ class ScreenBuffer(object):
         return self._lines[p:q]
 
     def move_backward(self):
-        self._position -= self._step_size
-        if self._position <= self._low_buffer_threshold:
+        if self._position - self._step_size <= self._low_buffer_threshold:
             new_lines = self._fetch_lines(self._lines[0].id, True,
                 self._buffer_size)
             self._lines = new_lines + self._lines
             self._position += len(new_lines)
 
+        self._set_position(self._position - self._step_size)
+
     def move_forward(self):
-        self._position += self._step_size
-        if self._position >= len(self._lines) - self._low_buffer_threshold:
+        hi_threshold = len(self._lines) - self._low_buffer_threshold
+        if self._position + self._step_size >= hi_threshold:
             new_lines = self._fetch_lines(self._lines[-1].id, False,
                 self._buffer_size)
             self._lines = self._lines + new_lines
+
+        self._set_position(self._position + self._step_size)
