@@ -1,16 +1,46 @@
 class ScreenBuffer(object):
     class Line(object):
-        def __init__(self, data):
+        def __init__(self, data, is_continuation):
             self._id = data['id']
+            self._datetime = data['datetime']
+            self._host = data['host']
+            self._program = data['program']
+            self._facility = data['facility']
+            self._level = data['level']
             self._message = data['message']
+            self._is_continuation = is_continuation
 
         @property
         def id(self):
             return self._id
 
         @property
+        def datetime(self):
+            return self._datetime
+
+        @property
+        def host(self):
+            return self._host
+
+        @property
+        def program(self):
+            return self._program
+
+        @property
+        def facility(self):
+            return self._facility
+
+        @property
+        def level(self):
+            return self._level
+
+        @property
         def message(self):
             return self._message
+
+        @property
+        def is_continuation(self):
+            return self._is_continuation
 
     def __init__(self, message_driver, page_size, buffer_size=None,
             low_buffer_threshold=None):
@@ -25,10 +55,16 @@ class ScreenBuffer(object):
         self.message_driver = message_driver
 
     def _fetch_lines(self, start, desc, count):
-        result = [ScreenBuffer.Line(x) for x in
-            self._message_driver.get_records(start, desc, count)]
+        recs = self._message_driver.get_records(start, desc, count)
         if desc:
-            result.reverse()
+            recs.reverse()
+        result = []
+        for rec in recs:
+            msgs = rec['message'].split('\n')
+            for i, msg in enumerate(msgs):
+                tmp = rec.copy()
+                tmp['message'] = msg
+                result.append(ScreenBuffer.Line(tmp, i > 0))
         return result
 
     def _set_position(self, pos):

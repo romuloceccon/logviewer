@@ -31,10 +31,14 @@ class ScreenBufferTest(unittest.TestCase):
             else:
                 r = range(start + 1, min(start + count, self._last_id) + 1)
 
-            return [{ 'id': i, 'message': str(i) } for i in r]
+            return [{ 'id': i, 'datetime': '2016-05-22 23:00:00', 'host': 'test',
+                'program': 'test', 'facility': 'user', 'level': 'info',
+                'message': str(i) } for i in r]
 
     def _get_line_range(self, begin, count, desc=True):
-        result = [{ 'id': i, 'message': str(i) } for i in range(begin, begin + count)]
+        result = [{ 'id': i, 'datetime': '2016-05-22 23:00:00', 'host': 'test',
+            'program': 'test', 'facility': 'user', 'level': 'info',
+            'message': str(i) } for i in range(begin, begin + count)]
         if desc:
             result.reverse()
         return result
@@ -207,6 +211,26 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual('101', cur[0].message)
 
         msg.get_records.assert_not_called()
+
+    def test_should_get_multi_line_records(self):
+        lines = self._get_line_range(91, 10)
+        lines[0]['message'] = '100/1\n100/2\n100/3'
+
+        msg = MagicMock()
+        msg.get_records = Mock(return_value=lines)
+
+        buf = ScreenBuffer(msg, page_size=4, buffer_size=10)
+
+        cur = buf.get_current_lines()
+        self.assertEqual(4, len(cur))
+        self.assertEqual('99', cur[0].message)
+        self.assertEqual(False, cur[0].is_continuation)
+        self.assertEqual('100/1', cur[1].message)
+        self.assertEqual(False, cur[1].is_continuation)
+        self.assertEqual('100/2', cur[2].message)
+        self.assertEqual(True, cur[2].is_continuation)
+        self.assertEqual('100/3', cur[3].message)
+        self.assertEqual(True, cur[3].is_continuation)
 
     def test_should_change_page_size_at_end_of_buffer(self):
         msg = ScreenBufferTest.FakeDriver(100)
