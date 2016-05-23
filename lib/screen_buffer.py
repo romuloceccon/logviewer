@@ -12,20 +12,20 @@ class ScreenBuffer(object):
         def message(self):
             return self._message
 
-    def __init__(self, message_driver, step_size, buffer_size=None,
+    def __init__(self, message_driver, page_size, buffer_size=None,
             low_buffer_threshold=None):
         self._message_driver = message_driver
 
-        self._step_size = step_size
+        self._page_size = page_size
         self._buffer_size = buffer_size \
-            if not buffer_size is None else step_size * 5
+            if not buffer_size is None else page_size * 5
         self._low_buffer_threshold = low_buffer_threshold \
-            if not low_buffer_threshold is None else step_size
+            if not low_buffer_threshold is None else page_size
 
-        n = self._buffer_size + self._step_size
+        n = self._buffer_size + self._page_size
         self._lines = self._fetch_lines(None, True, n)
 
-        self._set_position(len(self._lines) - self._step_size)
+        self._set_position(len(self._lines) - self._page_size)
 
     def _fetch_lines(self, start, desc, count):
         result = [ScreenBuffer.Line(x) for x in
@@ -35,7 +35,7 @@ class ScreenBuffer(object):
         return result
 
     def _set_position(self, pos):
-        p_min, p_max = 0, len(self._lines) - self._step_size
+        p_min, p_max = 0, len(self._lines) - self._page_size
         if pos < p_min:
             self._position = p_min
         elif pos > p_max:
@@ -49,43 +49,43 @@ class ScreenBuffer(object):
                 self._buffer_size)
             self._lines = new_lines + self._lines
             self._position += len(new_lines)
-            self._check_step_size()
+            self._check_page_size()
 
     def _check_forward_buffer(self):
         # To be symetric with move_backward we need to check the number of lines
         # after the last line of the *next* page, and not of the current one.
         hi_threshold = len(self._lines) - self._low_buffer_threshold
-        if self._position + self._step_size >= hi_threshold:
+        if self._position + self._page_size >= hi_threshold:
             new_lines = self._fetch_lines(self._lines[-1].id, False,
                 self._buffer_size)
             self._lines = self._lines + new_lines
 
-    def _check_step_size(self):
-        if self._position + self._step_size > len(self._lines):
-            self._set_position(len(self._lines) - self._step_size)
+    def _check_page_size(self):
+        if self._position + self._page_size > len(self._lines):
+            self._set_position(len(self._lines) - self._page_size)
 
     @property
-    def step_size(self):
-        return self._step_size
+    def page_size(self):
+        return self._page_size
 
-    @step_size.setter
-    def step_size(self, val):
-        self._step_size = val
+    @page_size.setter
+    def page_size(self, val):
+        self._page_size = val
 
-        self._check_step_size()
+        self._check_page_size()
 
         self._check_backward_buffer()
         self._check_forward_buffer()
 
     def get_current_lines(self):
         p = self._position
-        q = p + self._step_size
+        q = p + self._page_size
         return self._lines[p:q]
 
     def move_backward(self):
-        self._set_position(self._position - self._step_size)
+        self._set_position(self._position - self._page_size)
         self._check_backward_buffer()
 
     def move_forward(self):
-        self._set_position(self._position + self._step_size)
+        self._set_position(self._position + self._page_size)
         self._check_forward_buffer()
