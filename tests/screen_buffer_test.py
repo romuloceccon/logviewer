@@ -239,3 +239,13 @@ class ScreenBufferTest(unittest.TestCase):
         buf.page_size = 3
 
         self.assertEqual([(None, True, 4), (97, True, 2), (100, False, 2)], msg.calls)
+
+    def test_should_change_message_driver_after_initialize(self):
+        msg = ScreenBufferTest.FakeDriver(100)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.message_driver = ScreenBufferTest.FakeDriver(200)
+
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('199', cur[0].message)

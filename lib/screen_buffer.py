@@ -14,7 +14,7 @@ class ScreenBuffer(object):
 
     def __init__(self, message_driver, page_size, buffer_size=None,
             low_buffer_threshold=None):
-        self._message_driver = message_driver
+        self._message_driver = None
 
         self._page_size = page_size
         self._buffer_size = buffer_size \
@@ -22,10 +22,7 @@ class ScreenBuffer(object):
         self._low_buffer_threshold = low_buffer_threshold \
             if not low_buffer_threshold is None else page_size
 
-        n = self._buffer_size + self._page_size
-        self._lines = self._fetch_lines(None, True, n)
-
-        self._set_position(len(self._lines) - self._page_size)
+        self.message_driver = message_driver
 
     def _fetch_lines(self, start, desc, count):
         result = [ScreenBuffer.Line(x) for x in
@@ -76,6 +73,19 @@ class ScreenBuffer(object):
 
         self._check_backward_buffer()
         self._check_forward_buffer()
+
+    @property
+    def message_driver(self):
+        return self._message_driver
+
+    @message_driver.setter
+    def message_driver(self, val):
+        self._message_driver = val
+
+        n = self._buffer_size + self._page_size
+        self._lines = self._fetch_lines(None, True, n)
+
+        self._set_position(len(self._lines) - self._page_size)
 
     def get_current_lines(self):
         p = self._position
