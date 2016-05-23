@@ -72,6 +72,29 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual(50, buf._buffer_size)
         self.assertEqual(10, buf._low_buffer_threshold)
 
+    def test_should_go_to_previous_line(self):
+        msg = ScreenBufferTest.FakeDriver(100)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.go_to_previous_line()
+
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('98', cur[0].message)
+
+    def test_should_go_to_next_line(self):
+        msg = ScreenBufferTest.FakeDriver(100)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.go_to_previous_line()
+        msg.last_id = 110
+        buf.go_to_next_line()
+        buf.go_to_next_line()
+
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('100', cur[0].message)
+
     def test_should_go_to_previous_page(self):
         msg = MagicMock()
         msg.get_records = Mock(return_value=self._get_line_range(94, 7))
