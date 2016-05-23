@@ -4,6 +4,35 @@ from unittest.mock import Mock, MagicMock
 from screen_buffer import ScreenBuffer
 
 class ScreenBufferTest(unittest.TestCase):
+    class FakeDriver(object):
+        def __init__(self, last_id):
+            self._last_id = last_id
+            self._calls = []
+
+        @property
+        def calls(self):
+            return self._calls
+
+        @property
+        def last_id(self):
+            return self._last_id
+
+        @last_id.setter
+        def last_id(self, val):
+            self._last_id = val
+
+        def get_records(self, start, desc, count):
+            self._calls.append((start, desc, count))
+
+            if start is None:
+                r = range(self._last_id, max(self._last_id - count + 1, 0) - 1, -1)
+            elif desc:
+                r = range(start - 1, max(start - count, 0) - 1, -1)
+            else:
+                r = range(start + 1, min(start + count, self._last_id) + 1)
+
+            return [{ 'id': i, 'message': str(i) } for i in r]
+
     def _get_line_range(self, begin, count, desc=True):
         result = [{ 'id': i, 'message': str(i) } for i in range(begin, begin + count)]
         if desc:
@@ -155,3 +184,35 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual('101', cur[0].message)
 
         msg.get_records.assert_not_called()
+
+    def test_should_change_step_size_at_end_of_buffer(self):
+        msg = ScreenBufferTest.FakeDriver(100)
+        buf = ScreenBuffer(msg, step_size=2, buffer_size=5)
+
+        buf.step_size = 3
+        cur = buf.get_current_lines()
+        self.assertEqual(3, len(cur))
+        self.assertEqual('98', cur[0].message)
+
+        self.assertEqual([(None, True, 7), (100, False, 5)], msg.calls)
+
+    def test_should_change_step_size_before_end_of_buffer(self):
+        msg = ScreenBufferTest.FakeDriver(100)
+        buf = ScreenBuffer(msg, step_size=2, buffer_size=5)
+
+        buf.move_backward()
+        buf.step_size = 3
+        cur = buf.get_current_lines()
+        self.assertEqual(3, len(cur))
+        self.assertEqual('97', cur[0].message)
+
+        self.assertEqual([(None, True, 7), (100, False, 5)], msg.calls)
+
+    def test_should_get_more_records_if_buffer_is_low_for_new_step_size(self):
+        msg = ScreenBufferTest.FakeDriver(100)
+        buf = ScreenBuffer(msg, step_size=2, buffer_size=2)
+
+        msg.last_id = 110
+        buf.step_size = 3
+
+        self.assertEqual([(None, True, 4), (97, True, 2), (100, False, 2)], msg.calls)
