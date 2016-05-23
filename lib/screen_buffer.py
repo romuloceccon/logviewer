@@ -82,10 +82,10 @@ class ScreenBuffer(object):
         q = p + self._page_size
         return self._lines[p:q]
 
-    def move_backward(self):
+    def go_to_previous_page(self):
         self._set_position(self._position - self._page_size)
         self._check_backward_buffer()
 
-    def move_forward(self):
+    def go_to_next_page(self):
         self._set_position(self._position + self._page_size)
         self._check_forward_buffer()
