@@ -141,17 +141,29 @@ class ScreenBuffer(object):
         self._set_position(self._position - 1)
         self._check_backward_buffer()
 
+    def go_to_previous_line2(self):
+        self._set_position(self._position - 1)
+
     def go_to_next_line(self):
         self._set_position(self._position + 1)
         self._check_forward_buffer()
+
+    def go_to_next_line2(self):
+        self._set_position(self._position + 1)
 
     def go_to_previous_page(self):
         self._set_position(self._position - self._page_size)
         self._check_backward_buffer()
 
+    def go_to_previous_page2(self):
+        self._set_position(self._position - self._page_size)
+
     def go_to_next_page(self):
         self._set_position(self._position + self._page_size)
         self._check_forward_buffer()
+
+    def go_to_next_page2(self):
+        self._set_position(self._position + self._page_size)
 
     def prepend_record(self, rec):
         cnt = 0
@@ -175,3 +187,16 @@ class ScreenBuffer(object):
 
     def remove_observer(self, observer):
         self._observers.remove(observer)
+
+    def get_buffer_instructions(self):
+        result = []
+
+        if self._lines:
+            if self._position + self._page_size >= len(self._lines) - self._low_buffer_threshold:
+                result.append((self._lines[-1].id, False, self._buffer_size))
+            if self._position <= self._low_buffer_threshold:
+                result.append((self._lines[0].id, True, self._buffer_size))
+        else:
+            result.append((None, True, self._buffer_size + self._page_size))
+
+        return tuple(result)

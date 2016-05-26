@@ -93,87 +93,6 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual(50, buf._buffer_size)
         self.assertEqual(10, buf._low_buffer_threshold)
 
-    def test_should_go_to_previous_line(self):
-        msg = ScreenBufferTest.FakeDriver(100)
-        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
-
-        buf.go_to_previous_line()
-
-        cur = buf.get_current_lines()
-        self.assertEqual(2, len(cur))
-        self.assertEqual('98', cur[0].message)
-
-    def test_should_go_to_next_line(self):
-        msg = ScreenBufferTest.FakeDriver(100)
-        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
-
-        buf.go_to_previous_line()
-        msg.last_id = 110
-        buf.go_to_next_line()
-        buf.go_to_next_line()
-
-        cur = buf.get_current_lines()
-        self.assertEqual(2, len(cur))
-        self.assertEqual('100', cur[0].message)
-
-    def test_should_go_to_previous_page(self):
-        msg = MagicMock()
-        msg.get_records = Mock(return_value=self._get_line_range(94, 7))
-
-        buf = ScreenBuffer(msg, page_size=2, buffer_size=5, low_buffer_threshold=2)
-
-        buf.go_to_previous_page()
-        cur = buf.get_current_lines()
-        self.assertEqual(2, len(cur))
-        self.assertEqual('97', cur[0].message)
-        self.assertEqual('98', cur[1].message)
-
-        msg.get_records.assert_called_once_with(None, True, 7)
-
-    def test_should_go_to_previous_page_after_initializing_with_less_lines_than_page_size(self):
-        msg = MagicMock()
-        msg.get_records = Mock()
-
-        msg.get_records.return_value = self._get_line_range(2, 1)
-        buf = ScreenBuffer(msg, page_size=2, buffer_size=5, low_buffer_threshold=2)
-
-        msg.get_records.return_value = self._get_line_range(1, 1)
-        buf.go_to_previous_page()
-
-        cur = buf.get_current_lines()
-        self.assertEqual(2, len(cur))
-        self.assertEqual('1', cur[0].message)
-
-    def test_should_go_to_next_page(self):
-        msg = MagicMock()
-        msg.get_records = Mock(return_value=self._get_line_range(94, 7))
-
-        buf = ScreenBuffer(msg, page_size=2, buffer_size=5, low_buffer_threshold=0)
-
-        buf.go_to_previous_page()
-        buf.go_to_previous_page()
-        buf.go_to_next_page()
-        cur = buf.get_current_lines()
-        self.assertEqual(2, len(cur))
-        self.assertEqual('97', cur[0].message)
-        self.assertEqual('98', cur[1].message)
-
-        msg.get_records.assert_called_once_with(None, True, 7)
-
-    def test_should_go_to_next_page_without_new_records(self):
-        msg = MagicMock()
-        msg.get_records = Mock()
-
-        msg.get_records.return_value = self._get_line_range(95, 6)
-        buf = ScreenBuffer(msg, page_size=2)
-
-        msg.get_records.return_value = []
-        buf.go_to_next_page()
-
-        cur = buf.get_current_lines()
-        self.assertEqual(2, len(cur))
-        self.assertEqual('99', cur[0].message)
-
     def test_should_get_more_records_when_buffer_is_low_going_to_previous_page(self):
         msg = MagicMock()
         msg.get_records = Mock()
@@ -248,29 +167,6 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual(True, cur[2].is_continuation)
         self.assertEqual('100/3', cur[3].message)
         self.assertEqual(True, cur[3].is_continuation)
-
-    def test_should_change_page_size_at_end_of_buffer(self):
-        msg = ScreenBufferTest.FakeDriver(100)
-        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
-
-        buf.page_size = 3
-        cur = buf.get_current_lines()
-        self.assertEqual(3, len(cur))
-        self.assertEqual('98', cur[0].message)
-
-        self.assertEqual([(None, True, 7), (100, False, 5)], msg.calls)
-
-    def test_should_change_page_size_before_end_of_buffer(self):
-        msg = ScreenBufferTest.FakeDriver(100)
-        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
-
-        buf.go_to_previous_page()
-        buf.page_size = 3
-        cur = buf.get_current_lines()
-        self.assertEqual(3, len(cur))
-        self.assertEqual('97', cur[0].message)
-
-        self.assertEqual([(None, True, 7), (100, False, 5)], msg.calls)
 
     def test_should_get_more_records_if_buffer_is_low_for_new_page_size(self):
         msg = ScreenBufferTest.FakeDriver(100)
@@ -424,3 +320,163 @@ class ScreenBufferTest(unittest.TestCase):
         buf.remove_observer(self.observer.notify)
         buf.prepend_record(self._get_line(1))
         self.assertEqual(1, self.observer.count)
+
+    def test_should_go_to_previous_line(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        for i in range(10, 0, -1):
+            buf.prepend_record(self._get_line(i))
+
+        buf.go_to_previous_line2()
+
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('8', cur[0].message)
+
+    def test_should_go_to_next_line(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        for i in range(10):
+            buf.append_record(self._get_line(i + 1))
+
+        buf.go_to_next_line2()
+
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('2', cur[0].message)
+
+    def test_should_go_to_previous_page(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        for i in range(10, 0, -1):
+            buf.prepend_record(self._get_line(i))
+
+        buf.go_to_previous_page2()
+
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('7', cur[0].message)
+        self.assertEqual('8', cur[1].message)
+
+    def test_should_go_to_previous_page_with_less_lines_than_page_size(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.prepend_record(self._get_line(1))
+
+        buf.go_to_previous_page2()
+
+        cur = buf.get_current_lines()
+        self.assertEqual(1, len(cur))
+        self.assertEqual('1', cur[0].message)
+
+    def test_should_go_to_next_page(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        for i in range(10):
+            buf.append_record(self._get_line(i + 1))
+
+        buf.go_to_next_page2()
+
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('3', cur[0].message)
+
+    def test_should_go_to_next_page_with_less_lines_than_page_size(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.append_record(self._get_line(1))
+
+        buf.go_to_next_page2()
+
+        cur = buf.get_current_lines()
+        self.assertEqual(1, len(cur))
+        self.assertEqual('1', cur[0].message)
+
+    def test_should_change_page_size_at_end_of_buffer(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        for i in range(10, 0, -1):
+            buf.prepend_record(self._get_line(i))
+
+        buf.page_size = 3
+        cur = buf.get_current_lines()
+        self.assertEqual(3, len(cur))
+        self.assertEqual('8', cur[0].message)
+
+    def test_should_change_page_size_before_end_of_buffer(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        for i in range(10, 0, -1):
+            buf.prepend_record(self._get_line(i))
+
+        buf.go_to_previous_page2()
+        buf.page_size = 3
+
+        cur = buf.get_current_lines()
+        self.assertEqual(3, len(cur))
+        self.assertEqual('7', cur[0].message)
+
+    def test_should_get_buffer_instructions_for_empty_buffer(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        self.assertEqual(((None, True, 7),), buf.get_buffer_instructions())
+
+    def test_should_get_buffer_instructions_for_forward_buffer(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        for i in range(10, 0, -1):
+            buf.prepend_record(self._get_line(i))
+
+        self.assertEqual(((10, False, 5),), buf.get_buffer_instructions())
+
+    def test_should_not_get_buffer_instructions_for_forward_buffer_if_below_threshold(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        for i in range(10, 0, -1):
+            buf.prepend_record(self._get_line(i))
+        buf.go_to_previous_line2()
+        buf.go_to_previous_line2()
+        buf.go_to_previous_line2()
+
+        self.assertEqual(tuple(), buf.get_buffer_instructions())
+
+    def test_should_get_buffer_instructions_for_backward_buffer(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        for i in range(10, 20):
+            buf.append_record(self._get_line(i + 1))
+
+        self.assertEqual(((11, True, 5),), buf.get_buffer_instructions())
+
+    def test_should_not_get_buffer_instructions_for_backward_buffer_if_below_threshold(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        for i in range(10, 20):
+            buf.append_record(self._get_line(i + 1))
+        buf.go_to_next_line2()
+        buf.go_to_next_line2()
+        buf.go_to_next_line2()
+
+        self.assertEqual(tuple(), buf.get_buffer_instructions())
+
+    def test_should_get_buffer_instructions_if_both_buffers_are_below_threshold(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.append_record(self._get_line(11))
+        buf.append_record(self._get_line(12))
+
+        self.assertEqual(((12, False, 5), (11, True, 5)), buf.get_buffer_instructions())
