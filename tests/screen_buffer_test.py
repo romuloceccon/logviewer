@@ -4,6 +4,17 @@ from unittest.mock import Mock, MagicMock
 from screen_buffer import ScreenBuffer
 
 class ScreenBufferTest(unittest.TestCase):
+    class Observer(object):
+        def __init__(self):
+            self._count = 0
+
+        @property
+        def count(self):
+            return self._count
+
+        def notify(self):
+            self._count += 1
+
     class FakeDriver(object):
         def __init__(self, last_id):
             self._last_id = last_id
@@ -35,13 +46,19 @@ class ScreenBufferTest(unittest.TestCase):
                 'program': 'test', 'facility': 'user', 'level': 'info',
                 'message': str(i) } for i in r]
 
-    def _get_line_range(self, begin, count, desc=True):
-        result = [{ 'id': i, 'datetime': '2016-05-22 23:00:00', 'host': 'test',
+    def _get_line(self, i, message=None):
+        return { 'id': i, 'datetime': '2016-05-22 23:00:00', 'host': 'test',
             'program': 'test', 'facility': 'user', 'level': 'info',
-            'message': str(i) } for i in range(begin, begin + count)]
+            'message': message is None and str(i) or message }
+
+    def _get_line_range(self, begin, count, desc=True):
+        result = [self._get_line(i) for i in range(begin, begin + count)]
         if desc:
             result.reverse()
         return result
+
+    def setUp(self):
+        self.observer = ScreenBufferTest.Observer()
 
     def test_should_initialize_screen_buffer(self):
         msg = MagicMock()
@@ -273,3 +290,137 @@ class ScreenBufferTest(unittest.TestCase):
         cur = buf.get_current_lines()
         self.assertEqual(2, len(cur))
         self.assertEqual('199', cur[0].message)
+
+    def test_should_prepend_record_on_empty_buffer(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+        buf.add_observer(self.observer.notify)
+
+        buf.prepend_record(self._get_line(2))
+        self.assertEqual(1, self.observer.count)
+
+        cur = buf.get_current_lines()
+        self.assertEqual(1, len(cur))
+        self.assertEqual('2', cur[0].message)
+
+    def test_should_prepend_record_on_non_empty_buffer(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+        buf.add_observer(self.observer.notify)
+
+        buf.prepend_record(self._get_line(2))
+        buf.prepend_record(self._get_line(1))
+        self.assertEqual(2, self.observer.count)
+
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('1', cur[0].message)
+        self.assertEqual('2', cur[1].message)
+
+    def test_should_prepend_record_on_off_screen_buffer(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.prepend_record(self._get_line(3))
+        buf.prepend_record(self._get_line(2))
+
+        buf.add_observer(self.observer.notify)
+        buf.prepend_record(self._get_line(1))
+        self.assertEqual(0, self.observer.count)
+
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('2', cur[0].message)
+        self.assertEqual('3', cur[1].message)
+
+    def test_should_append_record_on_empty_buffer(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.add_observer(self.observer.notify)
+        buf.append_record(self._get_line(2))
+        self.assertEqual(1, self.observer.count)
+
+        cur = buf.get_current_lines()
+        self.assertEqual(1, len(cur))
+        self.assertEqual('2', cur[0].message)
+
+    def test_should_append_record_on_non_empty_buffer(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.append_record(self._get_line(2))
+        buf.append_record(self._get_line(3))
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('2', cur[0].message)
+        self.assertEqual('3', cur[1].message)
+
+    def test_should_append_record_past_end_of_screen(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.append_record(self._get_line(2))
+        buf.append_record(self._get_line(3))
+
+        buf.add_observer(self.observer.notify)
+        buf.append_record(self._get_line(4))
+        self.assertEqual(0, self.observer.count)
+
+    def test_should_prepend_record_on_buffer_not_at_end_of_screen(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.append_record(self._get_line(2))
+        buf.append_record(self._get_line(3))
+        buf.append_record(self._get_line(4))
+        buf.prepend_record(self._get_line(1))
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('2', cur[0].message)
+        self.assertEqual('3', cur[1].message)
+
+    def test_should_prepend_multi_line_record_on_empty_buffer(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.prepend_record(self._get_line(1, 'a\nb'))
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('a', cur[0].message)
+        self.assertEqual(False, cur[0].is_continuation)
+        self.assertEqual('b', cur[1].message)
+        self.assertEqual(True, cur[1].is_continuation)
+
+    def test_should_prepend_multi_line_record_on_non_empty_buffer(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.prepend_record(self._get_line(3))
+        buf.prepend_record(self._get_line(2))
+        buf.prepend_record(self._get_line(1, 'a\nb'))
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('2', cur[0].message)
+        self.assertEqual('3', cur[1].message)
+
+    def test_should_append_multi_line_record(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.append_record(self._get_line(1))
+        buf.append_record(self._get_line(2, 'a\nb'))
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('1', cur[0].message)
+        self.assertEqual('a', cur[1].message)
+
+    def test_should_stop_observing(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.add_observer(self.observer.notify)
+        buf.prepend_record(self._get_line(2))
+        buf.remove_observer(self.observer.notify)
+        buf.prepend_record(self._get_line(1))
+        self.assertEqual(1, self.observer.count)

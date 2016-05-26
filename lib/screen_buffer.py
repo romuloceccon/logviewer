@@ -44,6 +44,7 @@ class ScreenBuffer(object):
 
     def __init__(self, message_driver, page_size, buffer_size=None,
             low_buffer_threshold=None):
+        self._observers = set()
         self._message_driver = None
 
         self._page_size = page_size
@@ -54,21 +55,25 @@ class ScreenBuffer(object):
 
         self.message_driver = message_driver
 
+    def _build_lines(self, rec):
+        msgs = rec['message'].split('\n')
+        for i, msg in enumerate(msgs):
+            tmp = rec.copy()
+            tmp['message'] = msg
+            yield ScreenBuffer.Line(tmp, i > 0)
+
     def _fetch_lines(self, start, desc, count):
         recs = self._message_driver.get_records(start, desc, count)
         if desc:
             recs.reverse()
         result = []
         for rec in recs:
-            msgs = rec['message'].split('\n')
-            for i, msg in enumerate(msgs):
-                tmp = rec.copy()
-                tmp['message'] = msg
-                result.append(ScreenBuffer.Line(tmp, i > 0))
+            for line in self._build_lines(rec):
+                result.append(line)
         return result
 
     def _set_position(self, pos):
-        p_min, p_max = 0, len(self._lines) - self._page_size
+        p_min, p_max = 0, max(len(self._lines) - self._page_size, 0)
         if pos < p_min:
             self._position = p_min
         elif pos > p_max:
@@ -96,6 +101,10 @@ class ScreenBuffer(object):
     def _check_page_size(self):
         if self._position + self._page_size > len(self._lines):
             self._set_position(len(self._lines) - self._page_size)
+
+    def _notify_observers(self):
+        for observer in self._observers:
+            observer()
 
     @property
     def page_size(self):
@@ -143,3 +152,26 @@ class ScreenBuffer(object):
     def go_to_next_page(self):
         self._set_position(self._position + self._page_size)
         self._check_forward_buffer()
+
+    def prepend_record(self, rec):
+        cnt = 0
+        old_pos = self._position
+        for i, line in enumerate(self._build_lines(rec)):
+            cnt += 1
+            self._lines.insert(i, line)
+        self._set_position(self._position + cnt)
+        if old_pos + cnt != self._position:
+            self._notify_observers()
+
+    def append_record(self, rec):
+        old_len = len(self._lines)
+        for line in self._build_lines(rec):
+            self._lines.append(line)
+        if old_len < self._page_size:
+            self._notify_observers()
+
+    def add_observer(self, observer):
+        self._observers.add(observer)
+
+    def remove_observer(self, observer):
+        self._observers.remove(observer)
