@@ -1,4 +1,51 @@
+import threading
+
 class ScreenBuffer(object):
+    STOP = 1
+    GET_RECORDS = 2
+
+    class Driver(object):
+        def start_connection(self):
+            pass
+
+        def stop_connection(self):
+            pass
+
+        def prepare_query(self, start, desc, count):
+            pass
+
+        def fetch_record(self, query):
+            pass
+
+    class Thread(threading.Thread):
+        def __init__(self, screen_buffer, driver):
+            threading.Thread.__init__(self)
+            self._screen_buffer = screen_buffer
+            self._driver = driver
+
+        def run(self):
+            self._driver.start_connection()
+            try:
+                while True:
+                    cmd = self._screen_buffer._wait_event()
+                    if cmd == ScreenBuffer.STOP:
+                        return
+                    self._get_records()
+            finally:
+                self._driver.stop_connection()
+
+        def _get_records(self):
+            for start, desc, count in self._screen_buffer.get_buffer_instructions():
+                query = self._driver.prepare_query(start, desc, count)
+                while True:
+                    rec = self._driver.fetch_record(query)
+                    if rec is None:
+                        break
+                    if desc:
+                        self._screen_buffer.prepend_record(rec)
+                    else:
+                        self._screen_buffer.append_record(rec)
+
     class Line(object):
         def __init__(self, data, is_continuation):
             self._id = data['id']
@@ -43,7 +90,7 @@ class ScreenBuffer(object):
             return self._is_continuation
 
     def __init__(self, message_driver, page_size, buffer_size=None,
-            low_buffer_threshold=None):
+            low_buffer_threshold=None, message_driver2=None):
         self._observers = set()
         self._message_driver = None
 
@@ -54,6 +101,14 @@ class ScreenBuffer(object):
             if not low_buffer_threshold is None else page_size
 
         self.message_driver = message_driver
+
+        self._stopped = False
+        self._invalid = True
+        self._thread, self._condition_var = None, None
+        if message_driver2:
+            self._condition_var = threading.Condition()
+            self._thread = ScreenBuffer.Thread(self, message_driver2)
+            self._thread.start()
 
     def _build_lines(self, rec):
         msgs = rec['message'].split('\n')
@@ -106,6 +161,26 @@ class ScreenBuffer(object):
         for observer in self._observers:
             observer()
 
+    def _wait_event(self):
+        if not self._condition_var:
+            return
+
+        with self._condition_var:
+            while not (self._stopped or self._invalid):
+                self._condition_var.wait()
+            if self._stopped:
+                return ScreenBuffer.STOP
+            self._invalid = False
+            return ScreenBuffer.GET_RECORDS
+
+    def _invalidate(self):
+        if self._condition_var is None:
+            return
+
+        with self._condition_var:
+            self._invalid = True
+            self._condition_var.notify()
+
     @property
     def page_size(self):
         return self._page_size
@@ -143,6 +218,7 @@ class ScreenBuffer(object):
 
     def go_to_previous_line2(self):
         self._set_position(self._position - 1)
+        self._invalidate()
 
     def go_to_next_line(self):
         self._set_position(self._position + 1)
@@ -150,6 +226,7 @@ class ScreenBuffer(object):
 
     def go_to_next_line2(self):
         self._set_position(self._position + 1)
+        self._invalidate()
 
     def go_to_previous_page(self):
         self._set_position(self._position - self._page_size)
@@ -157,6 +234,7 @@ class ScreenBuffer(object):
 
     def go_to_previous_page2(self):
         self._set_position(self._position - self._page_size)
+        self._invalidate()
 
     def go_to_next_page(self):
         self._set_position(self._position + self._page_size)
@@ -164,6 +242,7 @@ class ScreenBuffer(object):
 
     def go_to_next_page2(self):
         self._set_position(self._position + self._page_size)
+        self._invalidate()
 
     def prepend_record(self, rec):
         cnt = 0
@@ -200,3 +279,12 @@ class ScreenBuffer(object):
             result.append((None, True, self._buffer_size + self._page_size))
 
         return tuple(result)
+
+    def stop(self):
+        if self._condition_var is None:
+            return
+
+        with self._condition_var:
+            self._stopped = True
+            self._condition_var.notify()
+        self._thread.join()
