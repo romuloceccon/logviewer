@@ -6,6 +6,36 @@ from unittest.mock import Mock, MagicMock
 from screen_buffer import ScreenBuffer
 
 class ScreenBufferTest(unittest.TestCase):
+    class Queue(object):
+        def __init__(self):
+            self._sem = threading.Semaphore(0)
+            self._lock = threading.Lock()
+            self._cv = threading.Condition(self._lock)
+            self._list = list()
+
+        def push(self, x):
+            with self._lock:
+                self._list.insert(0, x)
+            self._sem.release()
+
+        def pop(self):
+            self._sem.acquire()
+            with self._lock:
+                result = self._list.pop()
+            with self._cv:
+                self._cv.notify()
+            return result
+
+        def is_empty(self):
+            with self._lock:
+                return len(self._list) == 0
+
+        def push_none_and_wait(self):
+            self.push(None)
+            with self._cv:
+                while len(self._list) != 0:
+                    self._cv.wait()
+
     class Observer(object):
         def __init__(self):
             self._count = 0
@@ -49,12 +79,11 @@ class ScreenBufferTest(unittest.TestCase):
                 'message': str(i) } for i in r]
 
     class FakeDriver2(ScreenBuffer.Driver):
-        def __init__(self, recs):
+        def __init__(self, queue):
             self.started = threading.Event()
             self.stopped = False
-            self.recs = recs
+            self.queue = queue
             self.magic = random.randint(1, 1000)
-            self.count = threading.Semaphore(0)
             self.error = False
             self.instruction = None
 
@@ -71,14 +100,13 @@ class ScreenBufferTest(unittest.TestCase):
         def fetch_record(self, query):
             if query != self.magic:
                 self.error = True
-            self.count.release()
-            if len(self.recs) > 0:
-                i = self.recs[0]
-                del self.recs[0]
-                result = { 'id': i, 'datetime': '2016-05-22 23:00:00',
-                    'host': 'test', 'program': 'test', 'facility': 'user',
-                    'level': 'info', 'message': str(i) }
-                return result
+            i = self.queue.pop()
+            if i is None:
+                return None
+            result = { 'id': i, 'datetime': '2016-05-22 23:00:00',
+                'host': 'test', 'program': 'test', 'facility': 'user',
+                'level': 'info', 'message': str(i) }
+            return result
 
     def _get_line(self, i, message=None):
         return { 'id': i, 'datetime': '2016-05-22 23:00:00', 'host': 'test',
@@ -93,6 +121,10 @@ class ScreenBufferTest(unittest.TestCase):
 
     def setUp(self):
         self.observer = ScreenBufferTest.Observer()
+        self.queue = ScreenBufferTest.Queue()
+
+    def tearDown(self):
+        self.assertTrue(self.queue.is_empty())
 
     def test_should_initialize_screen_buffer(self):
         msg = MagicMock()
@@ -517,22 +549,23 @@ class ScreenBufferTest(unittest.TestCase):
 
     def test_should_start_and_stop_driver(self):
         msg = ScreenBufferTest.FakeDriver(-1)
-        drv = ScreenBufferTest.FakeDriver2([])
+        drv = ScreenBufferTest.FakeDriver2(self.queue)
         buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
 
         drv.started.wait()
+        self.queue.push_none_and_wait()
+
         buf.stop()
         self.assertTrue(drv.stopped)
 
     def test_should_fetch_records_in_descending_order(self):
         msg = ScreenBufferTest.FakeDriver(-1)
-        drv = ScreenBufferTest.FakeDriver2([2, 1])
+        drv = ScreenBufferTest.FakeDriver2(self.queue)
         buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
 
-        # wait for the two recs *and* the last call to fetch_record, which will
-        # return None
-        for x in range(3):
-            drv.count.acquire()
+        for x in range(2, 0, -1):
+            self.queue.push(x)
+        self.queue.push_none_and_wait()
 
         cur = buf.get_current_lines()
         buf.stop()
@@ -546,17 +579,17 @@ class ScreenBufferTest(unittest.TestCase):
 
     def test_should_fetch_records_in_ascending_order(self):
         msg = ScreenBufferTest.FakeDriver(-1)
-        drv = ScreenBufferTest.FakeDriver2([6, 5, 4, 3, 2, 1])
+        drv = ScreenBufferTest.FakeDriver2(self.queue)
         buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
 
-        for x in range(7):
-            drv.count.acquire()
+        for x in range(6, 0, -1):
+            self.queue.push(x)
+        self.queue.push_none_and_wait()
 
-        drv.recs = [7, 8, 9, 10, 11]
+        for x in range(7, 12):
+            self.queue.push(x)
         buf.go_to_previous_line2()
-
-        for x in range(6):
-            drv.count.acquire()
+        self.queue.push_none_and_wait()
 
         buf.go_to_next_page2()
         cur = buf.get_current_lines()
