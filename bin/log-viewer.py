@@ -2,12 +2,27 @@ import sys
 import curses
 import datetime
 import select
+import os
 
 from screen_buffer import ScreenBuffer
 from sqlite3_driver import Sqlite3Driver
 
 MAX_WIDTH = 200
 WIDTHS = [14, 8, 16, 4, 3]
+
+class Observer(object):
+    def __init__(self):
+        self._r, self._w = os.pipe()
+
+    def notify(self):
+        os.write(self._w, b'0')
+
+    def read(self):
+        return os.read(self._r, 256)
+
+    @property
+    def handle(self):
+        return self._r
 
 def pos(i):
     return sum(WIDTHS[:i]) + i
@@ -21,15 +36,22 @@ def run_app(window):
     curses.curs_set(0)
     window.nodelay(1)
 
-    msg = Sqlite3Driver('test.db')
     h, w = window.getmaxyx()
-    buf = ScreenBuffer(msg, page_size=h)
+
+    buf = ScreenBuffer(page_size=h)
+
+    observer = Observer()
+    buf.add_observer(observer.notify)
+
     pad = curses.newpad(h, MAX_WIDTH)
     pad_x = 0
     pad_x_max = max(0, MAX_WIDTH - w)
 
+    buf.start(Sqlite3Driver('test.db'))
+
     poll = select.epoll()
     poll.register(sys.stdin.fileno(), select.POLLIN)
+    poll.register(observer.handle, select.POLLIN)
 
     while True:
         window.clear()
@@ -50,20 +72,20 @@ def run_app(window):
 
         while True:
             try:
-                if poll.poll():
+                result_poll = poll.poll()
+                if result_poll:
+                    if result_poll[0][0] == observer.handle:
+                        observer.read()
                     break
             except InterruptedError:
                 break
 
         k = window.getch()
         if k == ord('q'):
+            buf.stop()
             return
 
-        if k == ord('e'):
-            buf.message_driver = Sqlite3Driver('test.db', True)
-        elif k == ord('a'):
-            buf.message_driver = Sqlite3Driver('test.db')
-        elif k == curses.KEY_NPAGE:
+        if k == curses.KEY_NPAGE:
             buf.go_to_next_page()
         elif k == curses.KEY_PPAGE:
             buf.go_to_previous_page()

@@ -1,40 +1,27 @@
 import sqlite3
 import datetime
 
-class Sqlite3Driver(object):
-    def __init__(self, filename, even_only=False):
-        self._connection = sqlite3.connect(filename)
-        self._even_only = even_only
+import sql_driver
 
-    def get_records(self, start, desc, count):
-        if desc:
-            order, id_cond = 'DESC', 'id < ?'
-        else:
-            order, id_cond = 'ASC', 'id > ?'
+class Sqlite3Driver(sql_driver.SqlDriver):
+    def __init__(self, filename, **kwargs):
+        sql_driver.SqlDriver.__init__(self, **kwargs)
+        self._filename = filename
 
-        if start is None:
-            conds, args = [], (count,)
-        else:
-            conds, args = [id_cond], (str(start), count)
+    def start_connection(self):
+        self._connection = sqlite3.connect(self._filename)
 
-        if self._even_only:
-            conds = conds + ['id % 2 = 0']
+    def stop_connection(self):
+        self._connection.close()
 
-        cur = self._connection.execute('''SELECT "id", "datetime", "host",
-            "program", "facility", "level", "message" FROM logs {} ORDER
-            BY id {} LIMIT ?'''.format(self._build_where(conds), order), args)
+    def select(self, cmd):
+        return self._connection.execute(cmd)
 
-        result = []
-        while True:
-            rec = cur.fetchone()
-            if rec is None:
-                return result
-            result.append({ 'id': rec[0],
-                'datetime': datetime.datetime.strptime(rec[1], '%Y-%m-%d %H:%M:%S'),
-                'host': rec[2], 'program': rec[3], 'facility': rec[4],
-                'level': rec[5], 'message': rec[6] })
-
-    def _build_where(self, conds):
-        if not conds:
-            return ''
-        return 'WHERE {}'.format(' AND '.join(['({})'.format(x) for x in conds]))
+    def fetch_record(self, query):
+        rec = query.fetchone()
+        if rec is None:
+            return
+        dt = datetime.datetime.strptime(rec[4], '%Y-%m-%d %H:%M:%S')
+        return { 'id': rec[0], 'facility': str(rec[1]), 'level': str(rec[2]),
+            'host': rec[3], 'datetime': dt, 'program': rec[5], 'pid': rec[6],
+            'message': rec[7] }
