@@ -24,6 +24,7 @@ class ScreenBuffer(object):
             self._driver = driver
 
         def run(self):
+            self._screen_buffer.clear()
             self._driver.start_connection()
             try:
                 while True:
@@ -284,7 +285,17 @@ class ScreenBuffer(object):
             if count > 0:
                 self._bottom_seen = True
 
+    def clear(self):
+        old_len = len(self._lines)
+        self._lines = list()
+        self._set_position(0)
+        if old_len > 0:
+            self._notify_observers()
+
     def start(self, driver):
+        if self._thread:
+            raise ValueError('{} driver is already started'.format(self.__class__.__name__))
+
         self._bottom_seen = False
         self._stopped = False
         self._invalid = True
@@ -297,5 +308,11 @@ class ScreenBuffer(object):
 
         with self._condition_var:
             self._stopped = True
-            self._condition_var.notify()
-        tmp.join()
+            if tmp:
+                self._condition_var.notify()
+        if tmp:
+            tmp.join()
+
+    def restart(self, driver):
+        self.stop()
+        self.start(driver)

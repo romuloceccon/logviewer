@@ -559,6 +559,59 @@ class ScreenBufferTest(unittest.TestCase):
         buf.stop()
         self.assertTrue(drv.stopped)
 
+    def test_should_not_start_already_started_driver(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        drv = ScreenBufferTest.FakeDriver2(self.queue)
+        buf.start(drv)
+        self.queue.push(None)
+        try:
+            self.assertRaises(ValueError, buf.start, drv)
+        finally:
+            buf.stop()
+
+    def test_should_restart_driver(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        drv = ScreenBufferTest.FakeDriver2(self.queue)
+        buf.start(drv)
+        self.queue.push(None)
+
+        queue2 = ScreenBufferTest.Queue()
+        drv2 = ScreenBufferTest.FakeDriver2(queue2)
+        buf.restart(drv2)
+        queue2.push(None)
+
+        buf.stop()
+
+    def test_should_stop_unstarted_driver(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.stop()
+
+    def test_should_clear_existing_records_on_restart(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        drv = ScreenBufferTest.FakeDriver2(self.queue)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
+        buf.start(drv)
+        for x in range(2, 0, -1):
+            self.queue.push(x)
+        self.queue.push_none_and_wait()
+
+        queue2 = ScreenBufferTest.Queue()
+        drv2 = ScreenBufferTest.FakeDriver2(queue2)
+        buf.restart(drv2)
+        queue2.push_none_and_wait()
+
+        try:
+            self.assertEqual(0, len(buf.get_current_lines()))
+        finally:
+            buf.stop()
+
     def test_should_fetch_records_from_thread(self):
         msg = ScreenBufferTest.FakeDriver(-1)
         drv = ScreenBufferTest.FakeDriver2(self.queue)
