@@ -73,13 +73,13 @@ class ScreenBufferTest(unittest.TestCase):
             if i is None:
                 return None
             result = { 'id': i, 'datetime': '2016-05-22 23:00:00',
-                'host': 'test', 'program': 'test', 'facility': 'user',
-                'level': 'info', 'message': str(i) }
+                'host': 'test', 'program': 'test', 'facility_num': 1,
+                'level_num': 6, 'message': str(i) }
             return result
 
     def _get_line(self, i, message=None):
         return { 'id': i, 'datetime': '2016-05-22 23:00:00', 'host': 'test',
-            'program': 'test', 'facility': 'user', 'level': 'info',
+            'program': 'test', 'facility_num': 1, 'level_num': 6,
             'message': message is None and str(i) or message }
 
     def setUp(self):
@@ -88,6 +88,30 @@ class ScreenBufferTest(unittest.TestCase):
 
     def tearDown(self):
         self.assertTrue(self.queue.is_empty())
+
+    def test_should_translate_integers_to_description(self):
+        line = ScreenBuffer.Line({ 'id': 1, 'datetime': '', 'host': '',
+            'program': '', 'message': '', 'facility_num': 1, 'level_num': 6 }, False)
+        self.assertEqual('user', line.facility)
+        self.assertEqual('info', line.level)
+
+    def test_should_translate_strings_to_description(self):
+        line = ScreenBuffer.Line({ 'id': 1, 'datetime': '', 'host': '',
+            'program': '', 'message': '', 'facility_num': '1', 'level_num': '6' }, False)
+        self.assertEqual('user', line.facility)
+        self.assertEqual('info', line.level)
+
+    def test_should_translate_out_of_range_values_to_blank(self):
+        line = ScreenBuffer.Line({ 'id': 1, 'datetime': '', 'host': '',
+            'program': '', 'message': '', 'facility_num': 24, 'level_num': 8 }, False)
+        self.assertEqual('', line.facility)
+        self.assertEqual('', line.level)
+
+    def test_should_translate_invalid_integers_to_blank(self):
+        line = ScreenBuffer.Line({ 'id': 1, 'datetime': '', 'host': '',
+            'program': '', 'message': '', 'facility_num': 'a', 'level_num': 'b' }, False)
+        self.assertEqual('', line.facility)
+        self.assertEqual('', line.level)
 
     def test_should_initialize_screen_buffer_with_defaults(self):
         buf = ScreenBuffer(page_size=10)

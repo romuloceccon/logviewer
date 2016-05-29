@@ -22,6 +22,6 @@ class Sqlite3Driver(sql_driver.SqlDriver):
         if rec is None:
             return
         dt = datetime.datetime.strptime(rec[4], '%Y-%m-%d %H:%M:%S')
-        return { 'id': rec[0], 'facility': str(rec[1]), 'level': str(rec[2]),
-            'host': rec[3], 'datetime': dt, 'program': rec[5], 'pid': rec[6],
-            'message': rec[7] }
+        return { 'id': rec[0], 'facility_num': str(rec[1]),
+            'level_num': str(rec[2]), 'host': rec[3], 'datetime': dt,
+            'program': rec[5], 'pid': rec[6], 'message': rec[7] }

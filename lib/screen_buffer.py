@@ -36,15 +36,31 @@ class ScreenBuffer(object):
                 self._driver.stop_connection()
 
     class Line(object):
+        FACILITIES = ['kern', 'user', 'mail', 'daemon', 'auth', 'syslog', 'lpr',
+            'news', 'uucp', '9', 'authpriv', 'ftp', '12', '13', '14', 'cron',
+            'local0', 'local1', 'local2', 'local3', 'local4', 'local5',
+            'local6', 'local7']
+        LEVELS = ['emerg', 'alert', 'crit', 'err', 'warning', 'notice', 'info',
+            'debug']
+
         def __init__(self, data, is_continuation):
             self._id = data['id']
             self._datetime = data['datetime']
             self._host = data['host']
             self._program = data['program']
-            self._facility = data['facility']
-            self._level = data['level']
+            self._facility = self._translate(ScreenBuffer.Line.FACILITIES, data['facility_num'])
+            self._level = self._translate(ScreenBuffer.Line.LEVELS, data['level_num'])
             self._message = data['message']
             self._is_continuation = is_continuation
+
+        def _translate(self, table, val):
+            if not isinstance(val, int):
+                if not isinstance(val, str) or not val.isdigit():
+                    return ''
+                val = int(val)
+            if val < 0 or val >= len(table):
+                return ''
+            return table[val]
 
         @property
         def id(self):
