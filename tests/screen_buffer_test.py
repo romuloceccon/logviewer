@@ -549,10 +549,10 @@ class ScreenBufferTest(unittest.TestCase):
 
     def test_should_start_and_stop_driver(self):
         msg = ScreenBufferTest.FakeDriver(-1)
-        drv = ScreenBufferTest.FakeDriver2(self.queue)
-        buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
 
-        buf.start()
+        drv = ScreenBufferTest.FakeDriver2(self.queue)
+        buf.start(drv)
         drv.started.wait()
         self.queue.push_none_and_wait()
 
@@ -562,9 +562,9 @@ class ScreenBufferTest(unittest.TestCase):
     def test_should_fetch_records_from_thread(self):
         msg = ScreenBufferTest.FakeDriver(-1)
         drv = ScreenBufferTest.FakeDriver2(self.queue)
-        buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
 
-        buf.start()
+        buf.start(drv)
         for x in range(2, 0, -1):
             self.queue.push(x)
         self.queue.push_none_and_wait()
@@ -581,14 +581,14 @@ class ScreenBufferTest(unittest.TestCase):
 
     def test_should_fetch_records_in_descending_order(self):
         msg = ScreenBufferTest.FakeDriver(-1)
-        drv = ScreenBufferTest.FakeDriver2(self.queue)
-        buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
 
         for x in range(2, 0, -1):
             self.queue.push(x)
         self.queue.push(None)
 
-        buf.get_records()
+        drv = ScreenBufferTest.FakeDriver2(self.queue)
+        buf.get_records(drv)
         cur = buf.get_current_lines()
 
         self.assertEqual(2, len(cur))
@@ -597,20 +597,20 @@ class ScreenBufferTest(unittest.TestCase):
 
     def test_should_fetch_records_in_ascending_order(self):
         msg = ScreenBufferTest.FakeDriver(-1)
-        drv = ScreenBufferTest.FakeDriver2(self.queue)
-        buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
 
         for x in range(5, 0, -1):
             self.queue.push(x)
         self.queue.push(None)
 
-        buf.get_records()
+        drv = ScreenBufferTest.FakeDriver2(self.queue)
+        buf.get_records(drv)
 
         for x in range(6, 11):
             self.queue.push(x)
         self.queue.push(None)
 
-        buf.get_records()
+        buf.get_records(drv)
 
         buf.go_to_next_page2()
         cur = buf.get_current_lines()
@@ -621,19 +621,20 @@ class ScreenBufferTest(unittest.TestCase):
 
     def test_should_stop_fetching_if_fetch_returns_less_records_than_asked(self):
         msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
         drv = ScreenBufferTest.FakeDriver2(self.queue)
-        buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
 
         for x in range(6, 0, -1):
             self.queue.push(x)
         self.queue.push(None)
 
-        buf.get_records()
+        buf.get_records(drv)
 
         buf.go_to_previous_page2()
         buf.go_to_previous_page2()
 
-        buf.get_records()
+        buf.get_records(drv)
 
         cur = buf.get_current_lines()
 
@@ -643,13 +644,14 @@ class ScreenBufferTest(unittest.TestCase):
 
     def test_should_not_stop_fetching_if_fetch_returns_correct_number_of_records(self):
         msg = ScreenBufferTest.FakeDriver(-1)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5)
+
         drv = ScreenBufferTest.FakeDriver2(self.queue)
-        buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
 
         for x in range(14, 7, -1):
             self.queue.push(x)
         self.queue.push(None)
-        buf.get_records()
+        buf.get_records(drv)
 
         buf.go_to_previous_page2()
         buf.go_to_previous_page2()
@@ -657,7 +659,7 @@ class ScreenBufferTest(unittest.TestCase):
         for x in range(7, 0, -1):
             self.queue.push(x)
         self.queue.push(None)
-        buf.get_records()
+        buf.get_records(drv)
 
         buf.go_to_previous_page2()
         cur = buf.get_current_lines()

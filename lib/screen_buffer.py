@@ -30,7 +30,7 @@ class ScreenBuffer(object):
                     cmd = self._screen_buffer._wait_event()
                     if cmd == ScreenBuffer.STOP:
                         return
-                    self._screen_buffer.get_records()
+                    self._screen_buffer.get_records(self._driver)
             finally:
                 self._driver.stop_connection()
 
@@ -78,7 +78,7 @@ class ScreenBuffer(object):
             return self._is_continuation
 
     def __init__(self, message_driver, page_size, buffer_size=None,
-            low_buffer_threshold=None, message_driver2=None):
+            low_buffer_threshold=None):
         self._observers = set()
         self._message_driver = None
 
@@ -89,15 +89,12 @@ class ScreenBuffer(object):
             if not low_buffer_threshold is None else page_size
 
         self.message_driver = message_driver
-        self._driver = message_driver2
 
-        self._bottom_seen = False
-        self._stopped = False
-        self._invalid = True
-        self._thread, self._condition_var = None, None
-        if message_driver2:
-            self._condition_var = threading.Condition()
-            self._thread = ScreenBuffer.Thread(self, message_driver2)
+        self._bottom_seen = None
+        self._stopped = None
+        self._invalid = None
+        self._thread = None
+        self._condition_var = threading.Condition()
 
     def _build_lines(self, rec):
         msgs = rec['message'].split('\n')
@@ -269,14 +266,14 @@ class ScreenBuffer(object):
 
         return tuple(result)
 
-    def get_records(self):
+    def get_records(self, driver):
         for start, desc, count in self.get_buffer_instructions():
             if desc and self._bottom_seen:
                 continue
 
-            query = self._driver.prepare_query(start, desc, count)
+            query = driver.prepare_query(start, desc, count)
             while True:
-                rec = self._driver.fetch_record(query)
+                rec = driver.fetch_record(query)
                 if rec is None:
                     break
                 count -= 1
@@ -287,17 +284,18 @@ class ScreenBuffer(object):
             if count > 0:
                 self._bottom_seen = True
 
-    def start(self):
-        if self._condition_var is None:
-            return
+    def start(self, driver):
+        self._bottom_seen = False
+        self._stopped = False
+        self._invalid = True
 
+        self._thread = ScreenBuffer.Thread(self, driver)
         self._thread.start()
 
     def stop(self):
-        if self._condition_var is None:
-            return
+        self._thread, tmp = None, self._thread
 
         with self._condition_var:
             self._stopped = True
             self._condition_var.notify()
-        self._thread.join()
+        tmp.join()
