@@ -30,21 +30,9 @@ class ScreenBuffer(object):
                     cmd = self._screen_buffer._wait_event()
                     if cmd == ScreenBuffer.STOP:
                         return
-                    self._get_records()
+                    self._screen_buffer.get_records()
             finally:
                 self._driver.stop_connection()
-
-        def _get_records(self):
-            for start, desc, count in self._screen_buffer.get_buffer_instructions():
-                query = self._driver.prepare_query(start, desc, count)
-                while True:
-                    rec = self._driver.fetch_record(query)
-                    if rec is None:
-                        break
-                    if desc:
-                        self._screen_buffer.prepend_record(rec)
-                    else:
-                        self._screen_buffer.append_record(rec)
 
     class Line(object):
         def __init__(self, data, is_continuation):
@@ -101,14 +89,15 @@ class ScreenBuffer(object):
             if not low_buffer_threshold is None else page_size
 
         self.message_driver = message_driver
+        self._driver = message_driver2
 
+        self._bottom_seen = False
         self._stopped = False
         self._invalid = True
         self._thread, self._condition_var = None, None
         if message_driver2:
             self._condition_var = threading.Condition()
             self._thread = ScreenBuffer.Thread(self, message_driver2)
-            self._thread.start()
 
     def _build_lines(self, rec):
         msgs = rec['message'].split('\n')
@@ -279,6 +268,30 @@ class ScreenBuffer(object):
             result.append((None, True, self._buffer_size + self._page_size))
 
         return tuple(result)
+
+    def get_records(self):
+        for start, desc, count in self.get_buffer_instructions():
+            if desc and self._bottom_seen:
+                continue
+
+            query = self._driver.prepare_query(start, desc, count)
+            while True:
+                rec = self._driver.fetch_record(query)
+                if rec is None:
+                    break
+                count -= 1
+                if desc:
+                    self.prepend_record(rec)
+                else:
+                    self.append_record(rec)
+            if count > 0:
+                self._bottom_seen = True
+
+    def start(self):
+        if self._condition_var is None:
+            return
+
+        self._thread.start()
 
     def stop(self):
         if self._condition_var is None:

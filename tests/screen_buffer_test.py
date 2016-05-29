@@ -552,17 +552,19 @@ class ScreenBufferTest(unittest.TestCase):
         drv = ScreenBufferTest.FakeDriver2(self.queue)
         buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
 
+        buf.start()
         drv.started.wait()
         self.queue.push_none_and_wait()
 
         buf.stop()
         self.assertTrue(drv.stopped)
 
-    def test_should_fetch_records_in_descending_order(self):
+    def test_should_fetch_records_from_thread(self):
         msg = ScreenBufferTest.FakeDriver(-1)
         drv = ScreenBufferTest.FakeDriver2(self.queue)
         buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
 
+        buf.start()
         for x in range(2, 0, -1):
             self.queue.push(x)
         self.queue.push_none_and_wait()
@@ -577,28 +579,89 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual('1', cur[0].message)
         self.assertEqual('2', cur[1].message)
 
+    def test_should_fetch_records_in_descending_order(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        drv = ScreenBufferTest.FakeDriver2(self.queue)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
+
+        for x in range(2, 0, -1):
+            self.queue.push(x)
+        self.queue.push(None)
+
+        buf.get_records()
+        cur = buf.get_current_lines()
+
+        self.assertEqual(2, len(cur))
+        self.assertEqual('1', cur[0].message)
+        self.assertEqual('2', cur[1].message)
+
     def test_should_fetch_records_in_ascending_order(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        drv = ScreenBufferTest.FakeDriver2(self.queue)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
+
+        for x in range(5, 0, -1):
+            self.queue.push(x)
+        self.queue.push(None)
+
+        buf.get_records()
+
+        for x in range(6, 11):
+            self.queue.push(x)
+        self.queue.push(None)
+
+        buf.get_records()
+
+        buf.go_to_next_page2()
+        cur = buf.get_current_lines()
+
+        self.assertEqual(2, len(cur))
+        self.assertEqual('6', cur[0].message)
+        self.assertEqual('7', cur[1].message)
+
+    def test_should_stop_fetching_if_fetch_returns_less_records_than_asked(self):
         msg = ScreenBufferTest.FakeDriver(-1)
         drv = ScreenBufferTest.FakeDriver2(self.queue)
         buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
 
         for x in range(6, 0, -1):
             self.queue.push(x)
-        self.queue.push_none_and_wait()
+        self.queue.push(None)
 
-        for x in range(7, 12):
-            self.queue.push(x)
-        buf.go_to_previous_line2()
-        self.queue.push_none_and_wait()
+        buf.get_records()
 
-        buf.go_to_next_page2()
+        buf.go_to_previous_page2()
+        buf.go_to_previous_page2()
+
+        buf.get_records()
+
         cur = buf.get_current_lines()
 
-        buf.stop()
-        self.assertTrue(drv.stopped)
-        self.assertFalse(drv.error)
-        self.assertEqual((6, False, 5), drv.instruction)
+        self.assertEqual(2, len(cur))
+        self.assertEqual('1', cur[0].message)
+        self.assertEqual('2', cur[1].message)
+
+    def test_should_not_stop_fetching_if_fetch_returns_correct_number_of_records(self):
+        msg = ScreenBufferTest.FakeDriver(-1)
+        drv = ScreenBufferTest.FakeDriver2(self.queue)
+        buf = ScreenBuffer(msg, page_size=2, buffer_size=5, message_driver2=drv)
+
+        for x in range(14, 7, -1):
+            self.queue.push(x)
+        self.queue.push(None)
+        buf.get_records()
+
+        buf.go_to_previous_page2()
+        buf.go_to_previous_page2()
+
+        for x in range(7, 0, -1):
+            self.queue.push(x)
+        self.queue.push(None)
+        buf.get_records()
+
+        buf.go_to_previous_page2()
+        cur = buf.get_current_lines()
 
         self.assertEqual(2, len(cur))
-        self.assertEqual('6', cur[0].message)
-        self.assertEqual('7', cur[1].message)
+        self.assertEqual('7', cur[0].message)
+        self.assertEqual('8', cur[1].message)
