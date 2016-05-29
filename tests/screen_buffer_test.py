@@ -527,3 +527,32 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual(2, len(cur))
         self.assertEqual('7', cur[0].message)
         self.assertEqual('8', cur[1].message)
+
+    def test_should_not_stop_fetching_if_forward_fetch_returns_fewer_records(self):
+        buf = ScreenBuffer(page_size=2, buffer_size=5)
+
+        drv = ScreenBufferTest.FakeDriver(self.queue)
+
+        for x in range(14, 7, -1):
+            self.queue.push(x)
+        self.queue.push(None)
+        buf.get_records(drv)
+
+        buf.go_to_previous_line()
+        self.queue.push(None)
+        buf.get_records(drv)
+
+        buf.go_to_previous_page()
+        buf.go_to_previous_page()
+
+        for x in range(7, 0, -1):
+            self.queue.push(x)
+        self.queue.push(None)
+        buf.get_records(drv)
+
+        buf.go_to_previous_page()
+        cur = buf.get_current_lines()
+
+        self.assertEqual(2, len(cur))
+        self.assertEqual('6', cur[0].message)
+        self.assertEqual('7', cur[1].message)

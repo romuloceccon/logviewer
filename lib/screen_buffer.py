@@ -237,7 +237,7 @@ class ScreenBuffer(object):
                     self.prepend_record(rec)
                 else:
                     self.append_record(rec)
-            if count > 0:
+            if desc and count > 0:
                 self._bottom_seen = True
 
     def clear(self):
