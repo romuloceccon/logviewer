@@ -93,7 +93,8 @@ class ScreenBuffer(object):
         self._stopped = None
         self._invalid = None
         self._thread = None
-        self._condition_var = threading.Condition()
+        self._lock = threading.Lock()
+        self._condition_var = threading.Condition(self._lock)
 
         self.clear()
 
@@ -143,52 +144,65 @@ class ScreenBuffer(object):
 
     @property
     def page_size(self):
-        return self._page_size
+        with self._lock:
+            return self._page_size
 
     @page_size.setter
     def page_size(self, val):
-        self._page_size = val
-        self._check_page_size()
+        with self._lock:
+            self._page_size = val
+            self._check_page_size()
 
     def get_current_lines(self):
-        p = self._position
-        q = p + self._page_size
-        return self._lines[p:q]
+        with self._lock:
+            p = self._position
+            q = p + self._page_size
+            return self._lines[p:q]
 
     def go_to_previous_line(self):
-        self._set_position(self._position - 1)
+        with self._lock:
+            self._set_position(self._position - 1)
         self._invalidate()
 
     def go_to_next_line(self):
-        self._set_position(self._position + 1)
+        with self._lock:
+            self._set_position(self._position + 1)
         self._invalidate()
 
     def go_to_previous_page(self):
-        self._set_position(self._position - self._page_size)
+        with self._lock:
+            self._set_position(self._position - self._page_size)
         self._invalidate()
 
     def go_to_next_page(self):
-        self._set_position(self._position + self._page_size)
+        with self._lock:
+            self._set_position(self._position + self._page_size)
         self._invalidate()
 
     def prepend_record(self, rec):
-        cnt = 0
-        old_pos = self._position
-        for i, line in enumerate(self._build_lines(rec)):
-            cnt += 1
-            self._lines.insert(i, line)
-        self._set_position(self._position + cnt)
-        if old_pos + cnt != self._position:
+        with self._lock:
+            cnt = 0
+            old_pos = self._position
+            for i, line in enumerate(self._build_lines(rec)):
+                cnt += 1
+                self._lines.insert(i, line)
+            self._set_position(self._position + cnt)
+            notify = old_pos + cnt != self._position
+        if notify:
             self._notify_observers()
 
     def append_record(self, rec):
-        old_len = len(self._lines)
-        for line in self._build_lines(rec):
-            self._lines.append(line)
-        if old_len < self._page_size:
+        with self._lock:
+            old_len = len(self._lines)
+            for line in self._build_lines(rec):
+                self._lines.append(line)
+            notify = old_len < self._page_size
+        if notify:
             self._notify_observers()
 
     def add_observer(self, observer):
+        # TODO: add/remove observer will be called from different threads; make
+        # them thread safe!
         self._observers.add(observer)
 
     def remove_observer(self, observer):
@@ -197,13 +211,14 @@ class ScreenBuffer(object):
     def get_buffer_instructions(self):
         result = []
 
-        if self._lines:
-            if self._position + self._page_size >= len(self._lines) - self._low_buffer_threshold:
-                result.append((self._lines[-1].id, False, self._buffer_size))
-            if self._position <= self._low_buffer_threshold:
-                result.append((self._lines[0].id, True, self._buffer_size))
-        else:
-            result.append((None, True, self._buffer_size + self._page_size))
+        with self._lock:
+            if self._lines:
+                if self._position + self._page_size >= len(self._lines) - self._low_buffer_threshold:
+                    result.append((self._lines[-1].id, False, self._buffer_size))
+                if self._position <= self._low_buffer_threshold:
+                    result.append((self._lines[0].id, True, self._buffer_size))
+            else:
+                result.append((None, True, self._buffer_size + self._page_size))
 
         return tuple(result)
 
@@ -226,11 +241,13 @@ class ScreenBuffer(object):
                 self._bottom_seen = True
 
     def clear(self):
-        old_len = 0
-        if not self._lines is None:
-            old_len = len(self._lines)
-        self._lines = list()
-        self._set_position(0)
+        with self._lock:
+            old_len = 0
+            if not self._lines is None:
+                old_len = len(self._lines)
+            self._lines = list()
+            self._set_position(0)
+
         if old_len > 0:
             self._notify_observers()
 
