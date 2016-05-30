@@ -7,39 +7,28 @@ import datetime
 from screen_buffer import ScreenBuffer
 from sqlite3_driver import Sqlite3Driver
 
-class SelfPipe(object):
+class EventPoll(object):
     def __init__(self):
         self._r, self._w = os.pipe()
 
-    def notify(self):
-        os.write(self._w, b'0')
-
-    def read(self):
-        return os.read(self._r, 256)
-
-    @property
-    def handle(self):
-        return self._r
-
-class EventPoll(object):
-    def __init__(self):
-        self._self_pipe = SelfPipe()
-
         self._poll = select.epoll()
         self._poll.register(sys.stdin.fileno(), select.POLLIN)
-        self._poll.register(self._self_pipe.handle, select.POLLIN)
+        self._poll.register(self._r, select.POLLIN)
+
+    def _notify(self):
+        os.write(self._w, b'0')
 
     @property
     def observer(self):
-        return self._self_pipe.notify
+        return self._notify
 
     def wait_char(self, window):
         while True:
             try:
                 result_poll = self._poll.poll()
                 if result_poll:
-                    if result_poll[0][0] == self._self_pipe.handle:
-                        self._self_pipe.read()
+                    if result_poll[0][0] == self._r:
+                        os.read(self._r, 256)
                     break
             except InterruptedError:
                 break
