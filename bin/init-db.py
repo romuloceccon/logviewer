@@ -2,6 +2,7 @@
 
 import sys
 import datetime
+import random
 
 sys.stdout.write('''BEGIN;
 ''')
@@ -24,10 +25,10 @@ for i in range(200):
     dt = datetime.datetime.strftime(now, '%Y-%m-%d %H:%M:%S')
     now += inc
     sys.stdout.write('''INSERT INTO logs (facility_num, level_num, host,
-datetime, program, pid, message) VALUES ('1', '1', 'oasis', '{}', 'test', '100',
+datetime, program, pid, message) VALUES ('1', '{}', 'oasis', '{}', 'test', '100',
 'line {}/1
 line {}/2');
-'''.format(dt, i + 1, i + 1))
+'''.format(random.randint(0, 7), dt, i + 1, i + 1))
 
 sys.stdout.write('''COMMIT;
 ''')
