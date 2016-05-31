@@ -47,8 +47,6 @@ class Manager(object):
         self._curses_window = curses_window
         self._poll = EventPoll()
         h, w = curses_window.getmaxyx()
-        self._screen_buffer = ScreenBuffer(page_size=h)
-        self._screen_buffer.add_observer(self._poll.observer)
 
         self._stack = list()
 
@@ -70,8 +68,12 @@ class Manager(object):
             self._stack[-1].handle_key(k)
 
     @property
-    def screen_buffer(self):
-        return self._screen_buffer
+    def poll(self):
+        return self._poll
+
+    @property
+    def curses(self):
+        return curses
 
     @property
     def curses_window(self):
@@ -83,15 +85,8 @@ class Manager(object):
 class Window(object):
     def __init__(self, window_manager):
         self._window_manager = window_manager
-        # TODO: acabar com esse método. Não é necessário que o window manager
-        # saiba qual é o curses window de cada janela
-        self._curses_window = self.init_curses_window(window_manager)
         self._result = None
         self._closed = False
-
-    @property
-    def curses_window(self):
-        return self._curses_window
 
     @property
     def window_manager(self):
@@ -118,17 +113,22 @@ class Window(object):
     def finish(self):
         pass
 
+    def handle_key(self, k):
+        raise RuntimeError('Not implemented')
+
     def refresh(self):
-        pass
+        raise RuntimeError('Not implemented')
 
     def resize(self, height, width):
-        pass
+        raise RuntimeError('Not implemented')
 
 class MainWindow(Window):
     MAX_WIDTH = 200
     WIDTHS = [14, 8, 16, 4, 3]
 
-    def init_curses_window(self, window_manager):
+    def __init__(self, window_manager):
+        Window.__init__(self, window_manager)
+
         curses_window = window_manager.curses_window
         h, w = curses_window.getmaxyx()
 
@@ -136,9 +136,8 @@ class MainWindow(Window):
         self._pad_x = 0
         self._pad_x_max = max(0, MainWindow.MAX_WIDTH - w)
 
-        self._buf = window_manager.screen_buffer
-
-        return curses_window
+        self._buf = ScreenBuffer(page_size=h)
+        self._buf.add_observer(window_manager.poll.observer)
 
     def _pos(self, i):
         return sum(MainWindow.WIDTHS[:i]) + i
@@ -209,8 +208,49 @@ class MainWindow(Window):
         elif k == curses.KEY_LEFT:
             self._go_left()
 
+class SelectWindow(Window):
+    def __init__(self, window_manager, title, items):
+        Window.__init__(self, window_manager)
+
+        self._curses = window_manager.curses
+        self._parent = window_manager.curses_window
+
+        self._title = title
+
+        self._height = len(items) + 4
+        self._width = 20
+        self._min_height = 5
+        self._min_width = 20
+
+        self._pad = self._curses.newpad(len(items), 16)
+
+        self.resize(*(self._parent.getmaxyx()))
+
+    def resize(self, h, w):
+        self._curses_window = None
+        self._cur_height, self._cur_width = None, None
+
+        new_h, new_w = min(self._height, h), min(self._width, w)
+        if new_h < self._min_height or new_w < self._min_width:
+            return
+
+        self._curses_window = self._parent.subwin(new_h, new_w,
+            (h - new_h) // 2, (w - new_w) // 2)
+        self._cur_height, self._cur_width = new_h, new_w
+        self._curses_window.bkgd(self._curses.color_pair(1))
+
+    def refresh(self):
+        self._curses_window.clear()
+        self._curses_window.border()
+        t = '|{}|'.format(self._title)
+        self._curses_window.addstr(0, (self._cur_width - len(t)) // 2, t)
+        self._curses_window.noutrefresh()
+        self._pad.noutrefresh(0, 0, 2, 2, self._cur_height - 3, self._cur_width - 3)
+
 class LevelWindow(Window):
-    def init_curses_window(self, window_manager):
+    def __init__(self, window_manager):
+        Window.__init__(self, window_manager)
+
         self._parent = window_manager.curses_window
         self._pos = 0
         self._levels = ScreenBuffer.Line.LEVELS
@@ -218,15 +258,10 @@ class LevelWindow(Window):
         self._height = len(self._levels) + 4
         self._width = max([len(x) for x in self._levels]) + 5
 
-        h_parent, w_parent = self._parent.getmaxyx()
-        result = self._parent.subwin(self._height, self._width,
-            (h_parent - self._height) // 2, (w_parent - self._width) // 2)
-        result.bkgd(curses.color_pair(1))
-        return result
+        self._curses_window = None
+        self.resize(*(self._parent.getmaxyx()))
 
     def handle_key(self, k):
-        sys.stderr.write('{}\n'.format(k))
-        sys.stderr.flush()
         if k == ord('\n'):
             self.close(self._pos)
         elif k == 27:
@@ -237,15 +272,26 @@ class LevelWindow(Window):
             self._pos = max(0, self._pos - 1)
 
     def refresh(self):
-        self.curses_window.clear()
-        self.curses_window.border()
+        if not self._curses_window:
+            return
+
+        self._curses_window.clear()
+        self._curses_window.border()
         title = '|Level|'
-        self.curses_window.addstr(0, (self._width - len(title)) // 2, title)
+        self._curses_window.addstr(0, (self._width - len(title)) // 2, title)
         for i, s in enumerate(self._levels):
             if i == self._pos:
-                self.curses_window.addch(i + 2, 2, '▶')
-            self.curses_window.addnstr(i + 2, 3, s, self._width - 5)
-        self.curses_window.noutrefresh()
+                self._curses_window.addch(i + 2, 2, '▶')
+            self._curses_window.addnstr(i + 2, 3, s, self._width - 5)
+        self._curses_window.noutrefresh()
 
     def resize(self, h, w):
-        self.curses_window.mvwin((h - self._height) // 2, (w - self._width) // 2)
+        if self._curses_window:
+            self._curses_window = None
+
+        if h < self._height or w < self._width:
+            return
+
+        self._curses_window = self._parent.subwin(self._height, self._width,
+            (h - self._height) // 2, (w - self._width) // 2)
+        self._curses_window.bkgd(curses.color_pair(1))
