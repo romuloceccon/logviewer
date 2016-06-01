@@ -89,6 +89,14 @@ class Window(object):
         self._closed = False
 
     @property
+    def closed(self):
+        return self._closed
+
+    @property
+    def result(self):
+        return self._result
+
+    @property
     def window_manager(self):
         return self._window_manager
 
@@ -158,9 +166,8 @@ class MainWindow(Window):
 
     def _change_level(self):
         window = LevelWindow(self.window_manager)
-        level = window.show()
-        if not level is None:
-            self._buf.restart(Sqlite3Driver('test.db', level=level))
+        if window.show():
+            self._buf.restart(Sqlite3Driver('test.db', level=window.position))
 
     def start(self):
         self._buf.start(Sqlite3Driver('test.db'))
@@ -217,59 +224,50 @@ class SelectWindow(Window):
 
         self._title = title
 
-        self._height = len(items) + 4
+        if len(items) == 0:
+            raise ValueError('Cannot create window with empty list')
+
+        self._items = items
+        self._count = len(items)
+        self._position = 0
+        self._offset = 0
+
+        self._border = 2
+        self._height = self._count + 2 * self._border
         self._width = 20
         self._min_height = 5
         self._min_width = 20
 
-        self._pad = self._curses.newpad(len(items), 16)
+        self._pad = self._curses.newpad(self._count, 16)
+        self._pad.bkgd(self._curses.color_pair(1))
 
         self.resize(*(self._parent.getmaxyx()))
 
-    def resize(self, h, w):
-        self._curses_window = None
-        self._cur_height, self._cur_width = None, None
+    def _update_offset(self):
+        pos = self._position
+        self._offset = min(pos, self._count - self._list_height,
+            max(self._offset, pos - self._list_height + 1))
 
-        new_h, new_w = min(self._height, h), min(self._width, w)
-        if new_h < self._min_height or new_w < self._min_width:
-            return
+    @property
+    def position(self):
+        return self._position
 
-        self._curses_window = self._parent.subwin(new_h, new_w,
-            (h - new_h) // 2, (w - new_w) // 2)
-        self._cur_height, self._cur_width = new_h, new_w
-        self._curses_window.bkgd(self._curses.color_pair(1))
-
-    def refresh(self):
-        self._curses_window.clear()
-        self._curses_window.border()
-        t = '|{}|'.format(self._title)
-        self._curses_window.addstr(0, (self._cur_width - len(t)) // 2, t)
-        self._curses_window.noutrefresh()
-        self._pad.noutrefresh(0, 0, 2, 2, self._cur_height - 3, self._cur_width - 3)
-
-class LevelWindow(Window):
-    def __init__(self, window_manager):
-        Window.__init__(self, window_manager)
-
-        self._parent = window_manager.curses_window
-        self._pos = 0
-        self._levels = ScreenBuffer.Line.LEVELS
-
-        self._height = len(self._levels) + 4
-        self._width = max([len(x) for x in self._levels]) + 5
-
-        self._curses_window = None
-        self.resize(*(self._parent.getmaxyx()))
+    @position.setter
+    def position(self, val):
+        if val < 0 or val >= self._count:
+            raise IndexError('Invalid position {}'.format(val))
+        self._position = val
+        self._update_offset()
 
     def handle_key(self, k):
         if k == ord('\n'):
-            self.close(self._pos)
+            self.close(True)
         elif k == 27:
-            self.close(None)
+            self.close(False)
         elif k == curses.KEY_DOWN:
-            self._pos = min(len(self._levels) - 1, self._pos + 1)
+            self.position = min(self._count - 1, self._position + 1)
         elif k == curses.KEY_UP:
-            self._pos = max(0, self._pos - 1)
+            self.position = max(0, self._position - 1)
 
     def refresh(self):
         if not self._curses_window:
@@ -277,21 +275,33 @@ class LevelWindow(Window):
 
         self._curses_window.clear()
         self._curses_window.border()
-        title = '|Level|'
-        self._curses_window.addstr(0, (self._width - len(title)) // 2, title)
-        for i, s in enumerate(self._levels):
-            if i == self._pos:
-                self._curses_window.addch(i + 2, 2, '▶')
-            self._curses_window.addnstr(i + 2, 3, s, self._width - 5)
+        t = '|{}|'.format(self._title)
+        self._curses_window.addstr(0, (self._cur_width - len(t)) // 2, t)
         self._curses_window.noutrefresh()
+        for i, x in enumerate(self._items):
+            prefix = '▶' if i == self._position else ' '
+            self._pad.addnstr(i, 0, '{}{}'.format(prefix, x), self._cur_width)
+        b = self._border
+        self._pad.noutrefresh(self._offset, 0, self._y + b, self._x + b,
+            self._y + self._cur_height - (b + 1), self._x + self._cur_width - (b + 1))
 
     def resize(self, h, w):
-        if self._curses_window:
-            self._curses_window = None
+        self._curses_window = None
+        self._cur_height, self._cur_width, self._list_height = None, None, None
+        self._y, self._x = None, None
 
-        if h < self._height or w < self._width:
+        new_h, new_w = min(self._height, h), min(self._width, w)
+        if new_h < self._min_height or new_w < self._min_width:
             return
 
-        self._curses_window = self._parent.subwin(self._height, self._width,
-            (h - self._height) // 2, (w - self._width) // 2)
-        self._curses_window.bkgd(curses.color_pair(1))
+        self._y, self._x = (h - new_h) // 2, (w - new_w) // 2
+        self._curses_window = self._parent.subwin(new_h, new_w, self._y, self._x)
+        self._cur_height, self._cur_width = new_h, new_w
+        self._list_height = self._cur_height - 2 * self._border
+        self._curses_window.bkgd(self._curses.color_pair(1))
+
+        self._update_offset()
+
+class LevelWindow(SelectWindow):
+    def __init__(self, window_manager):
+        SelectWindow.__init__(self, window_manager, 'Level', ScreenBuffer.Line.LEVELS)
