@@ -2,8 +2,31 @@ import sqlite3
 import datetime
 
 import sql_driver
+import screen_buffer
 
 class Sqlite3Driver(sql_driver.SqlDriver):
+    class Factory(object):
+        def __init__(self, filename):
+            self._filename = filename
+            self._level = None
+            self._max_level = len(screen_buffer.ScreenBuffer.Line.LEVELS) - 1
+
+        @property
+        def level(self):
+            if self._level is None:
+                return self._max_level
+            return self._level
+
+        @level.setter
+        def level(self, val):
+            if val == self._max_level:
+                self._level = None
+            else:
+                self._level = val
+
+        def create_driver(self):
+            return Sqlite3Driver(self._filename, level=self._level)
+
     def __init__(self, filename, **kwargs):
         sql_driver.SqlDriver.__init__(self, **kwargs)
         self._filename = filename

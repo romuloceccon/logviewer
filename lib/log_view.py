@@ -134,11 +134,13 @@ class MainWindow(Window):
     MAX_WIDTH = 200
     WIDTHS = [14, 8, 16, 4, 3]
 
-    def __init__(self, window_manager):
+    def __init__(self, window_manager, driver_factory):
         Window.__init__(self, window_manager)
 
         curses_window = window_manager.curses_window
         h, w = curses_window.getmaxyx()
+
+        self._driver_factory = driver_factory
 
         self._pad = curses.newpad(h, MainWindow.MAX_WIDTH)
         self._pad_x = 0
@@ -166,8 +168,10 @@ class MainWindow(Window):
 
     def _change_level(self):
         window = LevelWindow(self.window_manager)
+        window.position = self._driver_factory.level
         if window.show():
-            self._buf.restart(Sqlite3Driver('test.db', level=window.position))
+            self._driver_factory.level = window.position
+            self._buf.restart(self._driver_factory.create_driver())
 
     def start(self):
         self._buf.start(Sqlite3Driver('test.db'))
