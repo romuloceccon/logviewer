@@ -173,6 +173,15 @@ class MainWindow(Window):
             self._driver_factory.level = window.position
             self._buf.restart(self._driver_factory.create_driver())
 
+    def _change_facility(self):
+        window = FacilityWindow(self.window_manager)
+        window.position = 0 if self._driver_factory.facility is None else \
+            self._driver_factory.facility + 1
+        if window.show():
+            self._driver_factory.facility = None if window.position == 0 else \
+                window.position - 1
+            self._buf.restart(self._driver_factory.create_driver())
+
     def start(self):
         self._buf.start(Sqlite3Driver('test.db'))
 
@@ -206,6 +215,8 @@ class MainWindow(Window):
             self.close(None)
         elif k == ord('l'):
             self._change_level()
+        elif k == ord('f'):
+            self._change_facility()
         elif k == curses.KEY_NPAGE:
             self._buf.go_to_next_page()
         elif k == curses.KEY_PPAGE:
@@ -309,3 +320,8 @@ class SelectWindow(Window):
 class LevelWindow(SelectWindow):
     def __init__(self, window_manager):
         SelectWindow.__init__(self, window_manager, 'Level', ScreenBuffer.Line.LEVELS)
+
+class FacilityWindow(SelectWindow):
+    def __init__(self, window_manager):
+        SelectWindow.__init__(self, window_manager, 'Facility',
+            ['<ALL>'] + ScreenBuffer.Line.FACILITIES)

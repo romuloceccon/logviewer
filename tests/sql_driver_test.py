@@ -5,8 +5,8 @@ from sql_driver import SqlDriver
 
 class SqlDriverTest(unittest.TestCase):
     class FakeSqlDriver(SqlDriver):
-        def __init__(self, level=None):
-            SqlDriver.__init__(self, level)
+        def __init__(self, **kwargs):
+            SqlDriver.__init__(self, **kwargs)
             self.query = None
             self.magic = random.randint(1, 1000)
 
@@ -50,4 +50,12 @@ class SqlDriverTest(unittest.TestCase):
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
             "program, pid, message FROM logs WHERE id < 100 AND level_num <= 3 "\
+            "ORDER BY id DESC LIMIT 10", drv.query)
+
+    def test_should_execute_query_with_facility_filter(self):
+        drv = SqlDriverTest.FakeSqlDriver(facility=5)
+        self.assertEqual(drv.magic, drv.prepare_query(100, True, 10))
+
+        self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
+            "program, pid, message FROM logs WHERE id < 100 AND facility_num = 5 "\
             "ORDER BY id DESC LIMIT 10", drv.query)

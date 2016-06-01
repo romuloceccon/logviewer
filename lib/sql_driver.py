@@ -1,8 +1,9 @@
 from screen_buffer import ScreenBuffer
 
 class SqlDriver(ScreenBuffer.Driver):
-    def __init__(self, level=None):
+    def __init__(self, level=None, facility=None):
         self._level = level
+        self._facility = facility
 
     def prepare_query(self, start, desc, count):
         parts = [
@@ -29,6 +30,8 @@ class SqlDriver(ScreenBuffer.Driver):
             conds.append(id_where)
         if not self._level is None:
             conds.append('level_num <= {}'.format(self._level))
+        if not self._facility is None:
+            conds.append('facility_num = {}'.format(self._facility))
         if not conds:
             return
         return 'WHERE {}'.format(' AND '.join(conds))

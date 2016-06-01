@@ -10,7 +10,9 @@ class Sqlite3Driver(sql_driver.SqlDriver):
             self._filename = filename
             self._level = None
             self._max_level = len(screen_buffer.ScreenBuffer.Line.LEVELS) - 1
+            self._facility = None
 
+        # Level: None means maximum messages (i.e., level_num=6)
         @property
         def level(self):
             if self._level is None:
@@ -24,8 +26,18 @@ class Sqlite3Driver(sql_driver.SqlDriver):
             else:
                 self._level = val
 
+        # Facility: None means all facilities
+        @property
+        def facility(self):
+            return self._facility
+
+        @facility.setter
+        def facility(self, val):
+            self._facility = val
+
         def create_driver(self):
-            return Sqlite3Driver(self._filename, level=self._level)
+            return Sqlite3Driver(self._filename, level=self._level,
+                facility=self._facility)
 
     def __init__(self, filename, **kwargs):
         sql_driver.SqlDriver.__init__(self, **kwargs)
