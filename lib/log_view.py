@@ -9,7 +9,7 @@ from screen_buffer import ScreenBuffer
 from sqlite3_driver import Sqlite3Driver
 from text_input import TextInput
 from utf8_parser import Utf8Parser
-from window import Window, SelectWindow, TextWindow
+from window import Window, SelectWindow, TextWindow, FilterState
 
 class EventPoll(object):
     def __init__(self):
@@ -106,6 +106,8 @@ class MainWindow(Window):
         self._buf = ScreenBuffer(page_size=h)
         self._buf.add_observer(window_manager.poll.observer)
 
+        self._filter_state = FilterState()
+
     def _pos(self, i):
         return sum(MainWindow.WIDTHS[:i]) + i
 
@@ -125,33 +127,33 @@ class MainWindow(Window):
 
     def _change_level(self):
         window = LevelWindow(self.window_manager)
-        window.position = self._driver_factory.level
+        window.position = self._filter_state.level
         if window.show():
-            self._driver_factory.level = window.position
-            self._buf.restart(self._driver_factory.create_driver())
+            self._filter_state.level = window.position
+            self._buf.restart(self._driver_factory.create_driver(self._filter_state))
 
     def _change_facility(self):
         window = FacilityWindow(self.window_manager)
-        window.position = 0 if self._driver_factory.facility is None else \
-            self._driver_factory.facility + 1
+        window.position = 0 if self._filter_state.facility is None else \
+            self._filter_state.facility + 1
         if window.show():
-            self._driver_factory.facility = None if window.position == 0 else \
+            self._filter_state.facility = None if window.position == 0 else \
                 window.position - 1
-            self._buf.restart(self._driver_factory.create_driver())
+            self._buf.restart(self._driver_factory.create_driver(self._filter_state))
 
     def _change_host(self):
         window = TextWindow(self.window_manager, 'Host', 70)
-        window.text = self._driver_factory.host
+        window.text = self._filter_state.host or ''
         if window.show():
-            self._driver_factory.host = window.text
-            self._buf.restart(self._driver_factory.create_driver())
+            self._filter_state.host = window.text
+            self._buf.restart(self._driver_factory.create_driver(self._filter_state))
 
     def _change_program(self):
         window = TextWindow(self.window_manager, 'Program', 70)
-        window.text = self._driver_factory.program
+        window.text = self._filter_state.program or ''
         if window.show():
-            self._driver_factory.program = window.text
-            self._buf.restart(self._driver_factory.create_driver())
+            self._filter_state.program = window.text
+            self._buf.restart(self._driver_factory.create_driver(self._filter_state))
 
     def start(self):
         self._buf.start(Sqlite3Driver('test.db'))

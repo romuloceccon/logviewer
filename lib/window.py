@@ -1,5 +1,7 @@
 import curses
 
+import screen_buffer
+
 from screen_cursor import ScreenCursor
 from text_input import TextInput
 from utf8_parser import Utf8Parser
@@ -206,3 +208,56 @@ class TextWindow(CenteredWindow):
 
     def finish(self):
         self._curses.curs_set(0)
+
+class FilterState(object):
+    def __init__(self):
+        self._level = None
+        self._max_level = len(screen_buffer.ScreenBuffer.Line.LEVELS) - 1
+        self._facility = None
+        self._host = None
+        self._program = None
+
+    # Facility: None means all facilities
+    @property
+    def facility(self):
+        return self._facility
+
+    @facility.setter
+    def facility(self, val):
+        self._facility = val
+
+    @property
+    def host(self):
+        return self._host
+
+    @host.setter
+    def host(self, val):
+        if val:
+            self._host = val
+        else:
+            self._host = None
+
+    # Level: None means maximum messages (i.e., level_num=7)
+    @property
+    def level(self):
+        if self._level is None:
+            return self._max_level
+        return self._level
+
+    @level.setter
+    def level(self, val):
+        if val == self._max_level:
+            self._level = None
+        else:
+            self._level = val
+
+    @property
+    def program(self):
+        return self._program
+
+    @program.setter
+    def program(self, val):
+        if val:
+            self._program = val
+        else:
+            self._program = None

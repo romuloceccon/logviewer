@@ -3,7 +3,7 @@ from unittest.mock import Mock, MagicMock, PropertyMock
 
 import curses
 
-from window import CenteredWindow, SelectWindow, TextWindow
+from window import CenteredWindow, SelectWindow, TextWindow, FilterState
 
 class WindowTest(unittest.TestCase):
     def setUp(self):
@@ -218,3 +218,47 @@ class TextWindowTest(WindowTest):
         win.text = 'test text'
         win.handle_key(ord('x'))
         self.assertEqual('test textx', win.text)
+
+class FilterTest(unittest.TestCase):
+    def test_should_create_filter_state(self):
+        filter = FilterState()
+        self.assertEqual(7, filter.level)
+        self.assertIsNone(filter.facility)
+        self.assertIsNone(filter.host)
+        self.assertIsNone(filter.program)
+
+    def test_should_set_facility(self):
+        filter = FilterState()
+        filter.facility = 10
+        self.assertEqual(10, filter.facility)
+
+    def test_should_set_host(self):
+        filter = FilterState()
+        filter.host = 'example'
+        self.assertEqual('example', filter.host)
+
+    def test_should_clear_host(self):
+        filter = FilterState()
+        filter.host = ''
+        self.assertIsNone(filter.host)
+
+    def test_should_set_level(self):
+        filter = FilterState()
+        filter.level = 4
+        self.assertEqual(4, filter.level)
+
+    def test_should_clear_level(self):
+        filter = FilterState()
+        filter.level = 4
+        filter.level = None
+        self.assertEqual(7, filter.level)
+
+    def test_should_set_program(self):
+        filter = FilterState()
+        filter.program = 'su'
+        self.assertEqual('su', filter.program)
+
+    def test_should_clear_program(self):
+        filter = FilterState()
+        filter.program = ''
+        self.assertIsNone(filter.program)
