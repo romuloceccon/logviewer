@@ -1,17 +1,19 @@
 import curses
 
+from screen_cursor import ScreenCursor
+
 class TextInput(object):
     def __init__(self, max_len):
         self._max_len = max_len
         # one more character so we can show the cursor without scrolling the text
         self._width = self._max_len + 1
         self._text = ''
-        self._position = 0
-        self._offset = 0
+
+        self._cursor = ScreenCursor(count=0, visible_count=self._width)
 
     @property
     def cursor(self):
-        return self._position - self._offset
+        return self._cursor.position - self._cursor.offset
 
     @property
     def text(self):
@@ -19,7 +21,8 @@ class TextInput(object):
 
     @property
     def visible_text(self):
-        return self._text[self._offset:self._offset + self._width]
+        offset = self._cursor.offset
+        return self._text[offset:offset + self._width]
 
     @property
     def width(self):
@@ -28,33 +31,28 @@ class TextInput(object):
     @width.setter
     def width(self, val):
         self._width = val
-        self._set_position(self._position)
-
-    def _set_position(self, pos):
-        self._position = pos
-
-        effective_len = len(self._text)
-        if pos >= effective_len:
-            effective_len += 1
-        visible_w = min(self._width, effective_len)
-        max_o = effective_len - visible_w
-
-        self._offset = min(pos, max_o, max(self._offset, pos - visible_w + 1))
+        self._cursor.visible_count = val
 
     def put(self, char):
-        if isinstance(char, str) and len(self._text) < self._max_len and ord(char) >= 0x20:
-            self._text = self._text[:self._position] + char + self._text[self._position:]
-            self._set_position(self._position + 1)
-        elif char == curses.KEY_LEFT and self._position > 0:
-            self._set_position(self._position - 1)
-        elif char == curses.KEY_RIGHT and self._position < len(self._text):
-            self._set_position(self._position + 1)
+        pos = self._cursor.position
+        cnt = len(self._text)
+
+        if isinstance(char, str) and cnt < self._max_len and ord(char) >= 0x20:
+            self._text = self._text[:pos] + char + self._text[pos:]
+            self._cursor.count = len(self._text)
+            self._cursor.position = pos + 1
+        elif char == curses.KEY_LEFT and pos > 0:
+            self._cursor.position = pos - 1
+        elif char == curses.KEY_RIGHT and pos < cnt:
+            self._cursor.position = pos + 1
         elif char == curses.KEY_HOME:
-            self._set_position(0)
+            self._cursor.position = 0
         elif char == curses.KEY_END:
-            self._set_position(len(self._text))
-        elif char == curses.KEY_BACKSPACE and self._position > 0:
-            self._text = self._text[:self._position - 1] + self._text[self._position:]
-            self._set_position(self._position - 1)
+            self._cursor.position = cnt
+        elif char == curses.KEY_BACKSPACE and pos > 0:
+            self._text = self._text[:pos - 1] + self._text[pos:]
+            self._cursor.count = len(self._text)
+            self._cursor.position = pos - 1
         elif char == curses.KEY_DC:
-            self._text = self._text[:self._position] + self._text[self._position + 1:]
+            self._text = self._text[:pos] + self._text[pos + 1:]
+            self._cursor.count = len(self._text)

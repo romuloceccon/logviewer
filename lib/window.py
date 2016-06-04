@@ -1,5 +1,7 @@
 import curses
 
+from screen_cursor import ScreenCursor
+
 class Window(object):
     def __init__(self, window_manager):
         self._window_manager = window_manager
@@ -98,8 +100,7 @@ class SelectWindow(CenteredWindow):
 
         self._items = items
         self._count = len(items)
-        self._position = 0
-        self._offset = 0
+        self._cursor = ScreenCursor(self._count)
 
         CenteredWindow.__init__(self, window_manager, title,
             self._count, 16, 1, 16)
@@ -107,21 +108,15 @@ class SelectWindow(CenteredWindow):
         self._pad = self._curses.newpad(self._count, 16)
         self._pad.bkgd(self._curses.color_pair(1))
 
-    def _update_offset(self):
-        pos = self._position
-        self._offset = min(pos, self._count - self._list_height,
-            max(self._offset, pos - self._list_height + 1))
-
     @property
     def position(self):
-        return self._position
+        return self._cursor.position
 
     @position.setter
     def position(self, val):
         if val < 0 or val >= self._count:
             raise IndexError('Invalid position {}'.format(val))
-        self._position = val
-        self._update_offset()
+        self._cursor.position = val
 
     def handle_key(self, k):
         if k == ord('\n'):
@@ -129,9 +124,9 @@ class SelectWindow(CenteredWindow):
         elif k == 27:
             self.close(False)
         elif k == curses.KEY_DOWN:
-            self.position = min(self._count - 1, self._position + 1)
+            self.position = min(self._count - 1, self.position + 1)
         elif k == curses.KEY_UP:
-            self.position = max(0, self._position - 1)
+            self.position = max(0, self.position - 1)
 
     def refresh(self):
         CenteredWindow.refresh(self)
@@ -140,15 +135,14 @@ class SelectWindow(CenteredWindow):
             return
 
         for i, x in enumerate(self._items):
-            prefix = '▶' if i == self._position else ' '
+            prefix = '▶' if i == self.position else ' '
             self._pad.addnstr(i, 0, '{}{}'.format(prefix, x), self._cur_width)
         b = self._border
-        self._pad.noutrefresh(self._offset, 0, self._y + b, self._x + b,
+        self._pad.noutrefresh(self._cursor.offset, 0, self._y + b, self._x + b,
             self._y + self._cur_height - (b + 1), self._x + self._cur_width - (b + 1))
 
     def resize(self, h, w):
         CenteredWindow.resize(self, h, w)
 
         if self._curses_window:
-            self._list_height = self._cur_height - self._padding
-            self._update_offset()
+            self._cursor.visible_count = self._cur_height - self._padding

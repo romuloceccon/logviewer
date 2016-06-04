@@ -118,24 +118,6 @@ class SelectWindowTest(WindowTest):
         win.refresh()
         self._pad.noutrefresh.assert_called_with(1, 0, 2, 7, 3, 22)
 
-    def test_should_move_pad_up_if_position_would_be_off_of_screen(self):
-        self._parent_window.getmaxyx.return_value = (6, 30)
-        win = SelectWindow(self._manager, 'Letter', ['a', 'b', 'c', 'd'])
-
-        win.position = 3
-        win.position = 1
-        win.refresh()
-        self._pad.noutrefresh.assert_called_with(1, 0, 2, 7, 3, 22)
-
-    def test_should_move_pad_up_if_space_becomes_available_at_end_of_screen(self):
-        self._parent_window.getmaxyx.return_value = (6, 30)
-        win = SelectWindow(self._manager, 'Letter', ['a', 'b', 'c', 'd'])
-
-        win.position = 3
-        win.resize(7, 30)
-        win.refresh()
-        self._pad.noutrefresh.assert_called_with(1, 0, 2, 7, 4, 22)
-
     def test_should_handle_key_down(self):
         self._parent_window.getmaxyx.return_value = (9, 30)
         win = SelectWindow(self._manager, 'Letter', ['a', 'b', 'c'])

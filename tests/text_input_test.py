@@ -124,44 +124,7 @@ class TextInputTest(unittest.TestCase):
         self.assertEqual('bc', input.visible_text)
         self.assertEqual(2, input.cursor)
 
-    def test_should_scroll_right_when_going_back_over_last_char(self):
-        input = TextInput(max_len=10)
-        input.width = 3
-        input.put('a')
-        input.put('b')
-        input.put('c')
-        input.put('d')
-        input.put(curses.KEY_LEFT)
-        self.assertEqual('bcd', input.visible_text)
-        self.assertEqual(2, input.cursor)
-
-    def test_should_not_scroll_right_when_going_back_over_second_last_char(self):
-        input = TextInput(max_len=10)
-        input.width = 3
-        input.put('a')
-        input.put('b')
-        input.put('c')
-        input.put('d')
-        input.put(curses.KEY_LEFT)
-        input.put(curses.KEY_LEFT)
-        self.assertEqual('bcd', input.visible_text)
-        self.assertEqual(1, input.cursor)
-
-    def test_should_scroll_right_when_going_back_to_beginning(self):
-        input = TextInput(max_len=10)
-        input.width = 3
-        input.put('a')
-        input.put('b')
-        input.put('c')
-        input.put('d')
-        input.put(curses.KEY_LEFT)
-        input.put(curses.KEY_LEFT)
-        input.put(curses.KEY_LEFT)
-        input.put(curses.KEY_LEFT)
-        self.assertEqual('abc', input.visible_text)
-        self.assertEqual(0, input.cursor)
-
-    def test_should_squeeze_input_after_input(self):
+    def test_should_squeeze_text_input_after_input(self):
         input = TextInput(max_len=10)
         input.put('a')
         input.put('b')
