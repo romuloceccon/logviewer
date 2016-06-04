@@ -1,6 +1,8 @@
 import curses
 
 from screen_cursor import ScreenCursor
+from text_input import TextInput
+from utf8_parser import Utf8Parser
 
 class Window(object):
     def __init__(self, window_manager):
@@ -146,3 +148,60 @@ class SelectWindow(CenteredWindow):
 
         if self._curses_window:
             self._cursor.visible_count = self._cur_height - self._padding
+
+class TextWindow(CenteredWindow):
+    def __init__(self, window_manager, title, max_len):
+        self._max_len = max_len
+        self._text_input = TextInput(max_len=max_len)
+        self._utf8_parser = Utf8Parser(self._text_input.put)
+
+        CenteredWindow.__init__(self, window_manager, title, 1,
+            self._text_input.width, 1, 2)
+
+    def _update_text_width(self):
+        if self._cur_width:
+            self._text_input.width = self._cur_width - self._padding
+
+    @property
+    def text(self):
+        return self._text_input.text
+
+    @text.setter
+    def text(self, val):
+        self._text_input = TextInput(max_len=self._max_len, text=val)
+        self._update_text_width()
+
+    def handle_key(self, k):
+        if k == ord('\n'):
+            self.close(True)
+        elif k == 27:
+            if self._parent.getch() == -1:
+                self.close(False)
+        elif k >= curses.KEY_MIN:
+            self._text_input.put(k)
+        else:
+            self._utf8_parser.put_key(k)
+
+    def refresh(self):
+        CenteredWindow.refresh(self)
+
+        if not self._curses_window:
+            return
+
+        self._curses_window.addstr(self._border, self._border,
+            ' ' * self._text_input.width, self._curses.color_pair(2))
+        self._curses_window.move(2, 2)
+        self._curses_window.addstr(self._border, self._border,
+            self._text_input.visible_text, self._curses.color_pair(2))
+        self._curses_window.move(2, 2 + self._text_input.cursor)
+        self._curses_window.noutrefresh()
+
+    def resize(self, h, w):
+        CenteredWindow.resize(self, h, w)
+        self._update_text_width()
+
+    def start(self):
+        self._curses.curs_set(1)
+
+    def finish(self):
+        self._curses.curs_set(0)

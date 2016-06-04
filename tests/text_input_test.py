@@ -133,3 +133,13 @@ class TextInputTest(unittest.TestCase):
         input.width = 3
         self.assertEqual('cd', input.visible_text)
         self.assertEqual(2, input.cursor)
+
+    def test_should_initialize_text_input_with_text(self):
+        input = TextInput(max_len=10, text='test')
+        self.assertEqual('test', input.visible_text)
+        self.assertEqual(4, input.cursor)
+
+    def test_should_initialize_text_input_with_long_text(self):
+        input = TextInput(max_len=10, text='an excessively long test')
+        self.assertEqual('an excessi', input.visible_text)
+        self.assertEqual(10, input.cursor)

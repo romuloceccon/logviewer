@@ -3,7 +3,7 @@ from unittest.mock import Mock, MagicMock, PropertyMock
 
 import curses
 
-from window import CenteredWindow, SelectWindow
+from window import CenteredWindow, SelectWindow, TextWindow
 
 class WindowTest(unittest.TestCase):
     def setUp(self):
@@ -157,3 +157,56 @@ class SelectWindowTest(WindowTest):
         win.handle_key(27)
         self.assertTrue(win.closed)
         self.assertFalse(win.result)
+
+class TextWindowTest(WindowTest):
+    def test_should_create_window(self):
+        self._parent_window.getmaxyx.return_value = (9, 30)
+        win = TextWindow(self._manager, 'Test', 19)
+
+        self._parent_window.subwin.assert_called_with(5, 24, 2, 3)
+        self._child_window.bkgd.assert_called_with(123)
+
+    def test_should_start_and_stop_cursor(self):
+        self._parent_window.getmaxyx.return_value = (9, 30)
+        win = TextWindow(self._manager, 'Test', 19)
+
+        win.start()
+        win.finish()
+
+        self.assertEqual([((1,),), ((0,),)],
+            self._curses.curs_set.call_args_list)
+
+    def test_should_refresh_empty_window(self):
+        self._parent_window.getmaxyx.return_value = (9, 30)
+        win = TextWindow(self._manager, 'Test', 19)
+
+        win.refresh()
+
+        self.assertEqual([((0, 9, '|Test|'),), ((2, 2, ' ' * 20, 123),),
+            ((2, 2, '', 123),)], self._child_window.addstr.call_args_list)
+        self.assertEqual([((2, 2),), ((2, 2),)],
+            self._child_window.move.call_args_list)
+        self.assertEqual([((1,),), ((2,),), ((2,),)],
+            self._curses.color_pair.call_args_list)
+
+    def test_should_refresh_window_with_text(self):
+        self._parent_window.getmaxyx.return_value = (9, 30)
+        win = TextWindow(self._manager, 'Test', 19)
+
+        win.text = 'test text'
+        win.refresh()
+
+        self.assertEqual([((0, 9, '|Test|'),), ((2, 2, ' ' * 20, 123),),
+            ((2, 2, 'test text', 123),)], self._child_window.addstr.call_args_list)
+        self.assertEqual([((2, 2),), ((2, 11),)],
+            self._child_window.move.call_args_list)
+
+    def test_should_refresh_narrow_text_window(self):
+        self._parent_window.getmaxyx.return_value = (9, 20)
+        win = TextWindow(self._manager, 'Test', 19)
+
+        win.text = 'a longer test text'
+        win.refresh()
+
+        self.assertEqual([((0, 7, '|Test|'),), ((2, 2, ' ' * 16, 123),),
+            ((2, 2, 'onger test text', 123),)], self._child_window.addstr.call_args_list)

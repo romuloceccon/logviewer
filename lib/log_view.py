@@ -9,7 +9,7 @@ from screen_buffer import ScreenBuffer
 from sqlite3_driver import Sqlite3Driver
 from text_input import TextInput
 from utf8_parser import Utf8Parser
-from window import Window, SelectWindow
+from window import Window, SelectWindow, TextWindow
 
 class EventPoll(object):
     def __init__(self):
@@ -47,6 +47,7 @@ class Manager(object):
         curses_window.nodelay(1)
 
         curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
+        curses.init_pair(2, curses.COLOR_WHITE, curses.COLOR_BLACK)
 
         self._curses_window = curses_window
         self._poll = EventPoll()
@@ -174,7 +175,7 @@ class MainWindow(Window):
         elif k == ord('f'):
             self._change_facility()
         elif k == ord('t'):
-            window = TextWindow(self.window_manager)
+            window = TextWindow(self.window_manager, 'Test', 30)
             window.show()
         elif k == curses.KEY_NPAGE:
             self._buf.go_to_next_page()
@@ -197,59 +198,3 @@ class FacilityWindow(SelectWindow):
     def __init__(self, window_manager):
         SelectWindow.__init__(self, window_manager, 'Facility',
             ['<ALL>'] + ScreenBuffer.Line.FACILITIES)
-
-class TextWindow(Window):
-    def __init__(self, window_manager):
-        Window.__init__(self, window_manager)
-
-        self._curses = window_manager.curses
-        self._parent = window_manager.curses_window
-
-        self._text_input = TextInput(max_len=80)
-        self._utf8_parser = Utf8Parser(self._text_input.put)
-
-        self._border = 2
-        self._height = 1 + 2 * self._border
-        self._width = self._text_input.width + 2 * self._border
-        self._text = ''
-        self._char = None
-        self._offset = 0
-
-        self.resize(*(self._parent.getmaxyx()))
-
-    def handle_key(self, k):
-        if k == ord('\n'):
-            self.close(True)
-        elif k == 27:
-            if self._parent.getch() == -1:
-                self.close(False)
-        elif k >= curses.KEY_MIN:
-            self._text_input.put(k)
-        else:
-            self._utf8_parser.put_key(k)
-
-    def refresh(self):
-        self._curses_window.clear()
-        self._curses_window.border()
-        self._curses_window.noutrefresh()
-        self._text_window.clear()
-        self._text_window.addstr(0, 0, self._text_input.visible_text)
-        self._text_window.chgat(0, self._text_input.width, self._curses.color_pair(1))
-        self._text_window.move(0, self._text_input.cursor)
-        self._text_window.noutrefresh()
-
-    def resize(self, h, w):
-        new_h, new_w = min(self._height, h), min(self._width, w)
-        self._y, self._x = (h - new_h) // 2, (w - new_w) // 2
-        self._curses_window = self._parent.subwin(new_h, new_w, self._y, self._x)
-        self._curses_window.bkgd(self._curses.color_pair(1))
-        input_w = new_w - 2 * self._border
-        self._text_input.width = input_w
-        self._text_window = self._parent.subwin(1, input_w + 1,
-            self._y + self._border, self._x + self._border)
-
-    def start(self):
-        curses.curs_set(1)
-
-    def finish(self):
-        curses.curs_set(0)

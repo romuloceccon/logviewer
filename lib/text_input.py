@@ -3,13 +3,14 @@ import curses
 from screen_cursor import ScreenCursor
 
 class TextInput(object):
-    def __init__(self, max_len):
+    def __init__(self, max_len, text=''):
         self._max_len = max_len
         # one more character so we can show the cursor without scrolling the text
         self._width = self._max_len + 1
-        self._text = ''
+        self._text = text[:max_len]
 
         self._cursor = ScreenCursor(count=0, visible_count=self._width)
+        self._cursor.position = len(self._text)
 
     @property
     def cursor(self):
