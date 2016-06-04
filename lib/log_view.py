@@ -7,6 +7,9 @@ import struct
 
 from screen_buffer import ScreenBuffer
 from sqlite3_driver import Sqlite3Driver
+from text_input import TextInput
+from utf8_parser import Utf8Parser
+from window import Window, SelectWindow
 
 class EventPoll(object):
     def __init__(self):
@@ -82,54 +85,6 @@ class Manager(object):
 
     def run(self, main_window):
         main_window.show()
-
-class Window(object):
-    def __init__(self, window_manager):
-        self._window_manager = window_manager
-        self._result = None
-        self._closed = False
-
-    @property
-    def closed(self):
-        return self._closed
-
-    @property
-    def result(self):
-        return self._result
-
-    @property
-    def window_manager(self):
-        return self._window_manager
-
-    def show(self):
-        self._window_manager._stack.append(self)
-        self.start()
-        try:
-            while not self._closed:
-                self._window_manager._loop()
-            return self._result
-        finally:
-            self.finish()
-            self._window_manager._stack.pop()
-
-    def close(self, result):
-        self._result = result
-        self._closed = True
-
-    def start(self):
-        pass
-
-    def finish(self):
-        pass
-
-    def handle_key(self, k):
-        raise RuntimeError('Not implemented')
-
-    def refresh(self):
-        raise RuntimeError('Not implemented')
-
-    def resize(self, height, width):
-        raise RuntimeError('Not implemented')
 
 class MainWindow(Window):
     MAX_WIDTH = 200
@@ -234,93 +189,6 @@ class MainWindow(Window):
         elif k == curses.KEY_LEFT:
             self._go_left()
 
-class SelectWindow(Window):
-    def __init__(self, window_manager, title, items):
-        Window.__init__(self, window_manager)
-
-        self._curses = window_manager.curses
-        self._parent = window_manager.curses_window
-
-        self._title = title
-
-        if len(items) == 0:
-            raise ValueError('Cannot create window with empty list')
-
-        self._items = items
-        self._count = len(items)
-        self._position = 0
-        self._offset = 0
-
-        self._border = 2
-        self._height = self._count + 2 * self._border
-        self._width = 20
-        self._min_height = 5
-        self._min_width = 20
-
-        self._pad = self._curses.newpad(self._count, 16)
-        self._pad.bkgd(self._curses.color_pair(1))
-
-        self.resize(*(self._parent.getmaxyx()))
-
-    def _update_offset(self):
-        pos = self._position
-        self._offset = min(pos, self._count - self._list_height,
-            max(self._offset, pos - self._list_height + 1))
-
-    @property
-    def position(self):
-        return self._position
-
-    @position.setter
-    def position(self, val):
-        if val < 0 or val >= self._count:
-            raise IndexError('Invalid position {}'.format(val))
-        self._position = val
-        self._update_offset()
-
-    def handle_key(self, k):
-        if k == ord('\n'):
-            self.close(True)
-        elif k == 27:
-            self.close(False)
-        elif k == curses.KEY_DOWN:
-            self.position = min(self._count - 1, self._position + 1)
-        elif k == curses.KEY_UP:
-            self.position = max(0, self._position - 1)
-
-    def refresh(self):
-        if not self._curses_window:
-            return
-
-        self._curses_window.clear()
-        self._curses_window.border()
-        t = '|{}|'.format(self._title)
-        self._curses_window.addstr(0, (self._cur_width - len(t)) // 2, t)
-        self._curses_window.noutrefresh()
-        for i, x in enumerate(self._items):
-            prefix = '▶' if i == self._position else ' '
-            self._pad.addnstr(i, 0, '{}{}'.format(prefix, x), self._cur_width)
-        b = self._border
-        self._pad.noutrefresh(self._offset, 0, self._y + b, self._x + b,
-            self._y + self._cur_height - (b + 1), self._x + self._cur_width - (b + 1))
-
-    def resize(self, h, w):
-        self._curses_window = None
-        self._cur_height, self._cur_width, self._list_height = None, None, None
-        self._y, self._x = None, None
-
-        new_h, new_w = min(self._height, h), min(self._width, w)
-        if new_h < self._min_height or new_w < self._min_width:
-            return
-
-        self._y, self._x = (h - new_h) // 2, (w - new_w) // 2
-        self._curses_window = self._parent.subwin(new_h, new_w, self._y, self._x)
-        self._cur_height, self._cur_width = new_h, new_w
-        self._list_height = self._cur_height - 2 * self._border
-        self._curses_window.bkgd(self._curses.color_pair(1))
-
-        self._update_offset()
-
 class LevelWindow(SelectWindow):
     def __init__(self, window_manager):
         SelectWindow.__init__(self, window_manager, 'Level', ScreenBuffer.Line.LEVELS)
@@ -337,8 +205,12 @@ class TextWindow(Window):
         self._curses = window_manager.curses
         self._parent = window_manager.curses_window
 
-        self._height = 10
-        self._width = 30
+        self._text_input = TextInput(max_len=80)
+        self._utf8_parser = Utf8Parser(self._text_input.put)
+
+        self._border = 2
+        self._height = 1 + 2 * self._border
+        self._width = self._text_input.width + 2 * self._border
         self._text = ''
         self._char = None
         self._offset = 0
@@ -349,52 +221,35 @@ class TextWindow(Window):
         if k == ord('\n'):
             self.close(True)
         elif k == 27:
-            self.close(False)
-        elif k == curses.KEY_BACKSPACE:
-            if self._offset < 0:
-                self._text = self._text[:self._offset - 1] + self._text[self._offset:]
-            else:
-                self._text = self._text[:-1]
-        elif k == curses.KEY_LEFT:
-            self._offset = max(-len(self._text), self._offset - 1)
-            sys.stderr.write('{}\n'.format(self._offset))
-        elif k == curses.KEY_RIGHT:
-            self._offset = min(0, self._offset + 1)
-            sys.stderr.write('{}\n'.format(self._offset))
-        elif k & 0xe0 == 0xc0:
-            self._char = k
-        elif not self._char is None:
-            if self._offset < 0:
-                self._text = self._text[:self._offset] + struct.pack('<BB', self._char, k).decode('utf-8') + self._text[self._offset:]
-            else:
-                self._text += struct.pack('<BB', self._char, k).decode('utf-8')
-            self._char = None
+            if self._parent.getch() == -1:
+                self.close(False)
+        elif k >= curses.KEY_MIN:
+            self._text_input.put(k)
         else:
-            if self._offset < 0:
-                self._text = self._text[:self._offset] + chr(k) + self._text[self._offset:]
-            else:
-                self._text += chr(k)
+            self._utf8_parser.put_key(k)
 
     def refresh(self):
         self._curses_window.clear()
         self._curses_window.border()
-        self._curses_window.addstr(1, 1, self._text)
-        y, x = self._curses_window.getyx()
-        self._curses_window.move(y, x + self._offset)
-        sys.stderr.write('{} {} => {} {}\n'.format(y, x, y, x + self._offset))
         self._curses_window.noutrefresh()
+        self._text_window.clear()
+        self._text_window.addstr(0, 0, self._text_input.visible_text)
+        self._text_window.chgat(0, self._text_input.width, self._curses.color_pair(1))
+        self._text_window.move(0, self._text_input.cursor)
+        self._text_window.noutrefresh()
 
     def resize(self, h, w):
         new_h, new_w = min(self._height, h), min(self._width, w)
         self._y, self._x = (h - new_h) // 2, (w - new_w) // 2
         self._curses_window = self._parent.subwin(new_h, new_w, self._y, self._x)
         self._curses_window.bkgd(self._curses.color_pair(1))
-        self._curses_window.nodelay(0)
+        input_w = new_w - 2 * self._border
+        self._text_input.width = input_w
+        self._text_window = self._parent.subwin(1, input_w + 1,
+            self._y + self._border, self._x + self._border)
 
     def start(self):
         curses.curs_set(1)
-        curses.echo()
 
     def finish(self):
         curses.curs_set(0)
-        curses.noecho()

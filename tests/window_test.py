@@ -3,9 +3,9 @@ from unittest.mock import Mock, MagicMock, PropertyMock
 
 import curses
 
-from log_view import SelectWindow
+from window import SelectWindow
 
-class LogViewTest(unittest.TestCase):
+class SelectWindowTest(unittest.TestCase):
     def setUp(self):
         self._pad = MagicMock()
 
