@@ -3,6 +3,7 @@ import sys
 import select
 import curses
 import datetime
+import struct
 
 from screen_buffer import ScreenBuffer
 from sqlite3_driver import Sqlite3Driver
@@ -217,6 +218,9 @@ class MainWindow(Window):
             self._change_level()
         elif k == ord('f'):
             self._change_facility()
+        elif k == ord('t'):
+            window = TextWindow(self.window_manager)
+            window.show()
         elif k == curses.KEY_NPAGE:
             self._buf.go_to_next_page()
         elif k == curses.KEY_PPAGE:
@@ -325,3 +329,72 @@ class FacilityWindow(SelectWindow):
     def __init__(self, window_manager):
         SelectWindow.__init__(self, window_manager, 'Facility',
             ['<ALL>'] + ScreenBuffer.Line.FACILITIES)
+
+class TextWindow(Window):
+    def __init__(self, window_manager):
+        Window.__init__(self, window_manager)
+
+        self._curses = window_manager.curses
+        self._parent = window_manager.curses_window
+
+        self._height = 10
+        self._width = 30
+        self._text = ''
+        self._char = None
+        self._offset = 0
+
+        self.resize(*(self._parent.getmaxyx()))
+
+    def handle_key(self, k):
+        if k == ord('\n'):
+            self.close(True)
+        elif k == 27:
+            self.close(False)
+        elif k == curses.KEY_BACKSPACE:
+            if self._offset < 0:
+                self._text = self._text[:self._offset - 1] + self._text[self._offset:]
+            else:
+                self._text = self._text[:-1]
+        elif k == curses.KEY_LEFT:
+            self._offset = max(-len(self._text), self._offset - 1)
+            sys.stderr.write('{}\n'.format(self._offset))
+        elif k == curses.KEY_RIGHT:
+            self._offset = min(0, self._offset + 1)
+            sys.stderr.write('{}\n'.format(self._offset))
+        elif k & 0xe0 == 0xc0:
+            self._char = k
+        elif not self._char is None:
+            if self._offset < 0:
+                self._text = self._text[:self._offset] + struct.pack('<BB', self._char, k).decode('utf-8') + self._text[self._offset:]
+            else:
+                self._text += struct.pack('<BB', self._char, k).decode('utf-8')
+            self._char = None
+        else:
+            if self._offset < 0:
+                self._text = self._text[:self._offset] + chr(k) + self._text[self._offset:]
+            else:
+                self._text += chr(k)
+
+    def refresh(self):
+        self._curses_window.clear()
+        self._curses_window.border()
+        self._curses_window.addstr(1, 1, self._text)
+        y, x = self._curses_window.getyx()
+        self._curses_window.move(y, x + self._offset)
+        sys.stderr.write('{} {} => {} {}\n'.format(y, x, y, x + self._offset))
+        self._curses_window.noutrefresh()
+
+    def resize(self, h, w):
+        new_h, new_w = min(self._height, h), min(self._width, w)
+        self._y, self._x = (h - new_h) // 2, (w - new_w) // 2
+        self._curses_window = self._parent.subwin(new_h, new_w, self._y, self._x)
+        self._curses_window.bkgd(self._curses.color_pair(1))
+        self._curses_window.nodelay(0)
+
+    def start(self):
+        curses.curs_set(1)
+        curses.echo()
+
+    def finish(self):
+        curses.curs_set(0)
+        curses.noecho()
