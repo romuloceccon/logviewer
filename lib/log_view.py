@@ -139,6 +139,20 @@ class MainWindow(Window):
                 window.position - 1
             self._buf.restart(self._driver_factory.create_driver())
 
+    def _change_host(self):
+        window = TextWindow(self.window_manager, 'Host', 70)
+        window.text = self._driver_factory.host
+        if window.show():
+            self._driver_factory.host = window.text
+            self._buf.restart(self._driver_factory.create_driver())
+
+    def _change_program(self):
+        window = TextWindow(self.window_manager, 'Program', 70)
+        window.text = self._driver_factory.program
+        if window.show():
+            self._driver_factory.program = window.text
+            self._buf.restart(self._driver_factory.create_driver())
+
     def start(self):
         self._buf.start(Sqlite3Driver('test.db'))
 
@@ -174,9 +188,10 @@ class MainWindow(Window):
             self._change_level()
         elif k == ord('f'):
             self._change_facility()
-        elif k == ord('t'):
-            window = TextWindow(self.window_manager, 'Test', 30)
-            window.show()
+        elif k == ord('h'):
+            self._change_host()
+        elif k == ord('p'):
+            self._change_program()
         elif k == curses.KEY_NPAGE:
             self._buf.go_to_next_page()
         elif k == curses.KEY_PPAGE:

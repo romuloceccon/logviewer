@@ -59,3 +59,80 @@ class SqlDriverTest(unittest.TestCase):
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
             "program, pid, message FROM logs WHERE id < 100 AND facility_num = 5 "\
             "ORDER BY id DESC LIMIT 10", drv.query)
+
+    def test_should_filter_query_by_one_program(self):
+        drv = SqlDriverTest.FakeSqlDriver(program='sshd')
+        drv.prepare_query(100, True, 10)
+
+        self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
+            "program, pid, message FROM logs WHERE id < 100 AND "\
+            "(program = 'sshd') ORDER BY id DESC LIMIT 10", drv.query)
+
+    def test_should_filter_query_by_multiple_programs(self):
+        drv = SqlDriverTest.FakeSqlDriver(program='sshd sudo')
+        drv.prepare_query(100, True, 10)
+
+        self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
+            "program, pid, message FROM logs WHERE id < 100 AND "\
+            "(program = 'sshd' OR program = 'sudo') ORDER BY id DESC LIMIT 10",
+            drv.query)
+
+    def test_should_filter_by_program_stripping_extra_spaces(self):
+        drv = SqlDriverTest.FakeSqlDriver(program=' sshd  sudo ')
+        drv.prepare_query(100, True, 10)
+
+        self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
+            "program, pid, message FROM logs WHERE id < 100 AND "\
+            "(program = 'sshd' OR program = 'sudo') ORDER BY id DESC LIMIT 10",
+            drv.query)
+
+    def test_should_filter_program_with_wildcard(self):
+        drv = SqlDriverTest.FakeSqlDriver(program='s*')
+        drv.prepare_query(100, True, 10)
+
+        self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
+            "program, pid, message FROM logs WHERE id < 100 AND "\
+            "(program LIKE 's%') ORDER BY id DESC LIMIT 10", drv.query)
+
+    def test_should_filter_program_with_negative_condition(self):
+        drv = SqlDriverTest.FakeSqlDriver(program='!sshd')
+        drv.prepare_query(100, True, 10)
+
+        self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
+            "program, pid, message FROM logs WHERE id < 100 AND "\
+            "program <> 'sshd' ORDER BY id DESC LIMIT 10", drv.query)
+
+    def test_should_filter_program_with_negative_wildcard_condition(self):
+        drv = SqlDriverTest.FakeSqlDriver(program='!s*')
+        drv.prepare_query(100, True, 10)
+
+        self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
+            "program, pid, message FROM logs WHERE id < 100 AND "\
+            "program NOT LIKE 's%' ORDER BY id DESC LIMIT 10", drv.query)
+
+    def test_should_filter_program_with_multiple_negative_conditions(self):
+        drv = SqlDriverTest.FakeSqlDriver(program='!sshd !sudo')
+        drv.prepare_query(100, True, 10)
+
+        self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
+            "program, pid, message FROM logs WHERE id < 100 AND "\
+            "program <> 'sshd' AND program <> 'sudo' ORDER BY id DESC LIMIT 10",
+            drv.query)
+
+    def test_should_filter_program_with_positive_and_negative_conditions(self):
+        drv = SqlDriverTest.FakeSqlDriver(program='!sshd s*')
+        drv.prepare_query(100, True, 10)
+
+        self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
+            "program, pid, message FROM logs WHERE id < 100 AND "\
+            "(program LIKE 's%') AND program <> 'sshd' ORDER BY id DESC LIMIT 10",
+            drv.query)
+
+    def test_should_filter_host_with_multiple_conditions(self):
+        drv = SqlDriverTest.FakeSqlDriver(host='h1 h2')
+        drv.prepare_query(100, True, 10)
+
+        self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
+            "program, pid, message FROM logs WHERE id < 100 AND "\
+            "(host = 'h1' OR host = 'h2') ORDER BY id DESC LIMIT 10",
+            drv.query)

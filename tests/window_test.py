@@ -210,3 +210,11 @@ class TextWindowTest(WindowTest):
 
         self.assertEqual([((0, 7, '|Test|'),), ((2, 2, ' ' * 16, 123),),
             ((2, 2, 'onger test text', 123),)], self._child_window.addstr.call_args_list)
+
+    def test_should_handle_key_after_text_change(self):
+        self._parent_window.getmaxyx.return_value = (9, 30)
+        win = TextWindow(self._manager, 'Test', 19)
+
+        win.text = 'test text'
+        win.handle_key(ord('x'))
+        self.assertEqual('test textx', win.text)

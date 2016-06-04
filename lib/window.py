@@ -169,6 +169,7 @@ class TextWindow(CenteredWindow):
     @text.setter
     def text(self, val):
         self._text_input = TextInput(max_len=self._max_len, text=val)
+        self._utf8_parser = Utf8Parser(self._text_input.put)
         self._update_text_width()
 
     def handle_key(self, k):
