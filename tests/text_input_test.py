@@ -17,6 +17,12 @@ class TextInputTest(unittest.TestCase):
         self.assertEqual('a', input.visible_text)
         self.assertEqual(1, input.cursor)
 
+    def test_should_swallow_control_chars(self):
+        input = TextInput(max_len=10)
+        input.put('\t')
+        self.assertEqual('', input.text)
+        self.assertEqual(0, input.cursor)
+
     def test_should_move_cursor_left(self):
         input = TextInput(max_len=10)
         input.put('a')
@@ -75,6 +81,31 @@ class TextInputTest(unittest.TestCase):
         input.put(curses.KEY_BACKSPACE)
         self.assertEqual('a', input.text)
         self.assertEqual(0, input.cursor)
+
+    def test_should_delete_char_at_cursor(self):
+        input = TextInput(max_len=10)
+        input.put('a')
+        input.put('b')
+        input.put(curses.KEY_LEFT)
+        input.put(curses.KEY_LEFT)
+        input.put(curses.KEY_DC)
+        self.assertEqual('b', input.text)
+        self.assertEqual(0, input.cursor)
+
+    def test_should_go_to_beginning(self):
+        input = TextInput(max_len=10)
+        input.put('a')
+        input.put('b')
+        input.put(curses.KEY_HOME)
+        self.assertEqual(0, input.cursor)
+
+    def test_should_go_to_end(self):
+        input = TextInput(max_len=10)
+        input.put('a')
+        input.put('b')
+        input.put(curses.KEY_HOME)
+        input.put(curses.KEY_END)
+        self.assertEqual(2, input.cursor)
 
     def test_should_honor_max_len(self):
         input = TextInput(max_len=10)

@@ -28,11 +28,10 @@ class TextInput(object):
     @width.setter
     def width(self, val):
         self._width = val
-        self._inc_position(0)
+        self._set_position(self._position)
 
-    def _inc_position(self, val):
-        self._position += val
-        pos = self._position
+    def _set_position(self, pos):
+        self._position = pos
 
         effective_len = len(self._text)
         if pos >= effective_len:
@@ -43,13 +42,19 @@ class TextInput(object):
         self._offset = min(pos, max_o, max(self._offset, pos - visible_w + 1))
 
     def put(self, char):
-        if isinstance(char, str) and len(self._text) < self._max_len:
+        if isinstance(char, str) and len(self._text) < self._max_len and ord(char) >= 0x20:
             self._text = self._text[:self._position] + char + self._text[self._position:]
-            self._inc_position(1)
+            self._set_position(self._position + 1)
         elif char == curses.KEY_LEFT and self._position > 0:
-            self._inc_position(-1)
+            self._set_position(self._position - 1)
         elif char == curses.KEY_RIGHT and self._position < len(self._text):
-            self._inc_position(1)
+            self._set_position(self._position + 1)
+        elif char == curses.KEY_HOME:
+            self._set_position(0)
+        elif char == curses.KEY_END:
+            self._set_position(len(self._text))
         elif char == curses.KEY_BACKSPACE and self._position > 0:
             self._text = self._text[:self._position - 1] + self._text[self._position:]
-            self._inc_position(-1)
+            self._set_position(self._position - 1)
+        elif char == curses.KEY_DC:
+            self._text = self._text[:self._position] + self._text[self._position + 1:]
