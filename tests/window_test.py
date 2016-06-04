@@ -3,15 +3,12 @@ from unittest.mock import Mock, MagicMock, PropertyMock
 
 import curses
 
-from window import SelectWindow
+from window import CenteredWindow, SelectWindow
 
-class SelectWindowTest(unittest.TestCase):
+class WindowTest(unittest.TestCase):
     def setUp(self):
-        self._pad = MagicMock()
-
         self._curses = MagicMock()
         self._curses.color_pair.return_value = 123
-        self._curses.newpad.return_value = self._pad
 
         self._child_window = MagicMock()
 
@@ -21,6 +18,56 @@ class SelectWindowTest(unittest.TestCase):
         self._manager = MagicMock()
         type(self._manager).curses_window = PropertyMock(return_value=self._parent_window)
         type(self._manager).curses = PropertyMock(return_value=self._curses)
+
+class CenteredWindowTest(WindowTest):
+    def test_should_create_window(self):
+        self._parent_window.getmaxyx.return_value = (9, 30)
+        win = CenteredWindow(self._manager, 'Test', 3, 16, 1, 6)
+
+        self._parent_window.subwin.assert_called_with(7, 20, 1, 5)
+        self._child_window.bkgd.assert_called_with(123)
+
+    def test_should_squeeze_into_small_window(self):
+        self._parent_window.getmaxyx.return_value = (5, 30)
+        win = CenteredWindow(self._manager, 'Test', 3, 16, 1, 6)
+
+        self._parent_window.subwin.assert_called_with(5, 20, 0, 5)
+
+    def test_should_create_window_not_perfectly_centerable(self):
+        self._parent_window.getmaxyx.return_value = (8, 29)
+        win = CenteredWindow(self._manager, 'Test', 3, 16, 1, 6)
+
+        self._parent_window.subwin.assert_called_with(7, 20, 0, 4)
+
+    def test_should_not_create_too_small_window(self):
+        self._parent_window.getmaxyx.return_value = (4, 30)
+        win = CenteredWindow(self._manager, 'Test', 3, 16, 1, 6)
+
+        self.assertEqual(0, self._parent_window.subwin.call_count)
+
+    def test_should_refresh_window(self):
+        self._parent_window.getmaxyx.return_value = (9, 30)
+        win = CenteredWindow(self._manager, 'Test', 3, 16, 1, 6)
+
+        win.refresh()
+        self._child_window.clear.assert_called_with()
+        self._child_window.border.assert_called_with()
+        self._child_window.addstr.assert_called_with(0, 7, '|Test|')
+        self._child_window.noutrefresh.assert_called_with()
+
+    def test_should_not_refresh_invisible_window(self):
+        self._parent_window.getmaxyx.return_value = (4, 30)
+        win = CenteredWindow(self._manager, 'Test', 3, 16, 1, 6)
+
+        win.refresh()
+        self._child_window.clear.assert_not_called()
+
+class SelectWindowTest(WindowTest):
+    def setUp(self):
+        WindowTest.setUp(self)
+
+        self._pad = MagicMock()
+        self._curses.newpad.return_value = self._pad
 
     def test_should_create_window(self):
         self._parent_window.getmaxyx.return_value = (9, 30)
@@ -34,24 +81,6 @@ class SelectWindowTest(unittest.TestCase):
     def test_should_not_create_empty_window(self):
         self.assertRaises(ValueError, SelectWindow, self._manager, 'x', [])
 
-    def test_should_create_window_not_perfectly_centerable(self):
-        self._parent_window.getmaxyx.return_value = (8, 29)
-        win = SelectWindow(self._manager, 'Letter', ['a', 'b', 'c'])
-
-        self._parent_window.subwin.assert_called_with(7, 20, 0, 4)
-
-    def test_should_squeeze_into_small_window(self):
-        self._parent_window.getmaxyx.return_value = (5, 30)
-        win = SelectWindow(self._manager, 'Letter', ['a', 'b', 'c'])
-
-        self._parent_window.subwin.assert_called_with(5, 20, 0, 5)
-
-    def test_should_not_create_too_small_window(self):
-        self._parent_window.getmaxyx.return_value = (4, 30)
-        win = SelectWindow(self._manager, 'Letter', ['a', 'b', 'c'])
-
-        self.assertEqual(0, self._parent_window.subwin.call_count)
-
     def test_should_refresh_window(self):
         self._parent_window.getmaxyx.return_value = (9, 30)
         win = SelectWindow(self._manager, 'Letter', ['a', 'b', 'c'])
@@ -64,13 +93,6 @@ class SelectWindowTest(unittest.TestCase):
         self.assertEqual([((0, 0, '▶a', 20),), ((1, 0, ' b', 20),),
             ((2, 0, ' c', 20),)], self._pad.addnstr.call_args_list)
         self._pad.noutrefresh.assert_called_with(0, 0, 3, 7, 5, 22)
-
-    def test_should_not_refresh_invisible_window(self):
-        self._parent_window.getmaxyx.return_value = (4, 30)
-        win = SelectWindow(self._manager, 'Letter', ['a', 'b', 'c'])
-
-        win.refresh()
-        self._child_window.clear.assert_not_called()
 
     def test_should_change_position(self):
         self._parent_window.getmaxyx.return_value = (9, 30)

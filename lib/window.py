@@ -48,8 +48,9 @@ class Window(object):
     def resize(self, height, width):
         raise RuntimeError('Not implemented')
 
-class SelectWindow(Window):
-    def __init__(self, window_manager, title, items):
+class CenteredWindow(Window):
+    def __init__(self, window_manager, title, height, width, min_height,
+            min_width):
         Window.__init__(self, window_manager)
 
         self._curses = window_manager.curses
@@ -57,6 +58,41 @@ class SelectWindow(Window):
 
         self._title = title
 
+        self._border = 2
+        self._padding = 2 * self._border
+        self._height = height + self._padding
+        self._width = width + self._padding
+        self._min_height = min_height + self._padding
+        self._min_width = min_width + self._padding
+
+        self.resize(*(self._parent.getmaxyx()))
+
+    def refresh(self):
+        if not self._curses_window:
+            return
+
+        self._curses_window.clear()
+        self._curses_window.border()
+        t = '|{}|'.format(self._title)
+        self._curses_window.addstr(0, (self._cur_width - len(t)) // 2, t)
+        self._curses_window.noutrefresh()
+
+    def resize(self, h, w):
+        self._curses_window = None
+        self._cur_height, self._cur_width = None, None
+        self._y, self._x = None, None
+
+        new_h, new_w = min(self._height, h), min(self._width, w)
+        if new_h < self._min_height or new_w < self._min_width:
+            return
+
+        self._y, self._x = (h - new_h) // 2, (w - new_w) // 2
+        self._curses_window = self._parent.subwin(new_h, new_w, self._y, self._x)
+        self._cur_height, self._cur_width = new_h, new_w
+        self._curses_window.bkgd(self._curses.color_pair(1))
+
+class SelectWindow(CenteredWindow):
+    def __init__(self, window_manager, title, items):
         if len(items) == 0:
             raise ValueError('Cannot create window with empty list')
 
@@ -65,16 +101,11 @@ class SelectWindow(Window):
         self._position = 0
         self._offset = 0
 
-        self._border = 2
-        self._height = self._count + 2 * self._border
-        self._width = 20
-        self._min_height = 5
-        self._min_width = 20
+        CenteredWindow.__init__(self, window_manager, title,
+            self._count, 16, 1, 16)
 
         self._pad = self._curses.newpad(self._count, 16)
         self._pad.bkgd(self._curses.color_pair(1))
-
-        self.resize(*(self._parent.getmaxyx()))
 
     def _update_offset(self):
         pos = self._position
@@ -103,14 +134,11 @@ class SelectWindow(Window):
             self.position = max(0, self._position - 1)
 
     def refresh(self):
+        CenteredWindow.refresh(self)
+
         if not self._curses_window:
             return
 
-        self._curses_window.clear()
-        self._curses_window.border()
-        t = '|{}|'.format(self._title)
-        self._curses_window.addstr(0, (self._cur_width - len(t)) // 2, t)
-        self._curses_window.noutrefresh()
         for i, x in enumerate(self._items):
             prefix = '▶' if i == self._position else ' '
             self._pad.addnstr(i, 0, '{}{}'.format(prefix, x), self._cur_width)
@@ -119,18 +147,8 @@ class SelectWindow(Window):
             self._y + self._cur_height - (b + 1), self._x + self._cur_width - (b + 1))
 
     def resize(self, h, w):
-        self._curses_window = None
-        self._cur_height, self._cur_width, self._list_height = None, None, None
-        self._y, self._x = None, None
+        CenteredWindow.resize(self, h, w)
 
-        new_h, new_w = min(self._height, h), min(self._width, w)
-        if new_h < self._min_height or new_w < self._min_width:
-            return
-
-        self._y, self._x = (h - new_h) // 2, (w - new_w) // 2
-        self._curses_window = self._parent.subwin(new_h, new_w, self._y, self._x)
-        self._cur_height, self._cur_width = new_h, new_w
-        self._list_height = self._cur_height - 2 * self._border
-        self._curses_window.bkgd(self._curses.color_pair(1))
-
-        self._update_offset()
+        if self._curses_window:
+            self._list_height = self._cur_height - self._padding
+            self._update_offset()
