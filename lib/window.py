@@ -95,7 +95,7 @@ class CenteredWindow(Window):
         self._y, self._x = (h - new_h) // 2, (w - new_w) // 2
         self._curses_window = self._parent.subwin(new_h, new_w, self._y, self._x)
         self._cur_height, self._cur_width = new_h, new_w
-        self._curses_window.bkgd(self._curses.color_pair(1))
+        self._curses_window.bkgd(self._curses.A_REVERSE)
 
 class SelectWindow(CenteredWindow):
     def __init__(self, window_manager, title, items):
@@ -110,7 +110,7 @@ class SelectWindow(CenteredWindow):
             self._count, 16, 1, 16)
 
         self._pad = self._curses.newpad(self._count, 16)
-        self._pad.bkgd(self._curses.color_pair(1))
+        self._pad.bkgd(self._curses.A_REVERSE)
 
     @property
     def position(self):
@@ -191,11 +191,10 @@ class TextWindow(CenteredWindow):
         if not self._curses_window:
             return
 
-        self._curses_window.addstr(self._border, self._border,
-            ' ' * self._text_input.width, self._curses.color_pair(2))
         self._curses_window.move(2, 2)
         self._curses_window.addstr(self._border, self._border,
-            self._text_input.visible_text, self._curses.color_pair(2))
+            self._text_input.visible_text)
+        self._curses_window.chgat(2, 2, self._text_input.width, 0)
         self._curses_window.move(2, 2 + self._text_input.cursor)
         self._curses_window.noutrefresh()
 

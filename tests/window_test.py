@@ -8,7 +8,7 @@ from window import CenteredWindow, SelectWindow, TextWindow, FilterState
 class WindowTest(unittest.TestCase):
     def setUp(self):
         self._curses = MagicMock()
-        self._curses.color_pair.return_value = 123
+        type(self._curses).A_REVERSE = PropertyMock(return_value=123)
 
         self._child_window = MagicMock()
 
@@ -182,12 +182,12 @@ class TextWindowTest(WindowTest):
 
         win.refresh()
 
-        self.assertEqual([((0, 9, '|Test|'),), ((2, 2, ' ' * 20, 123),),
-            ((2, 2, '', 123),)], self._child_window.addstr.call_args_list)
+        self.assertEqual([((0, 9, '|Test|'),), ((2, 2, ''),)],
+            self._child_window.addstr.call_args_list)
         self.assertEqual([((2, 2),), ((2, 2),)],
             self._child_window.move.call_args_list)
-        self.assertEqual([((1,),), ((2,),), ((2,),)],
-            self._curses.color_pair.call_args_list)
+        self.assertEqual([((2, 2, 20, 0),)],
+            self._child_window.chgat.call_args_list)
 
     def test_should_refresh_window_with_text(self):
         self._parent_window.getmaxyx.return_value = (9, 30)
@@ -196,8 +196,8 @@ class TextWindowTest(WindowTest):
         win.text = 'test text'
         win.refresh()
 
-        self.assertEqual([((0, 9, '|Test|'),), ((2, 2, ' ' * 20, 123),),
-            ((2, 2, 'test text', 123),)], self._child_window.addstr.call_args_list)
+        self.assertEqual([((0, 9, '|Test|'),), ((2, 2, 'test text'),)],
+            self._child_window.addstr.call_args_list)
         self.assertEqual([((2, 2),), ((2, 11),)],
             self._child_window.move.call_args_list)
 
@@ -208,8 +208,8 @@ class TextWindowTest(WindowTest):
         win.text = 'a longer test text'
         win.refresh()
 
-        self.assertEqual([((0, 7, '|Test|'),), ((2, 2, ' ' * 16, 123),),
-            ((2, 2, 'onger test text', 123),)], self._child_window.addstr.call_args_list)
+        self.assertEqual([((0, 7, '|Test|'),), ((2, 2, 'onger test text'),)],
+            self._child_window.addstr.call_args_list)
 
     def test_should_handle_key_after_text_change(self):
         self._parent_window.getmaxyx.return_value = (9, 30)
