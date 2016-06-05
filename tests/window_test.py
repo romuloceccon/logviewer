@@ -51,14 +51,14 @@ class LogWindowTest(WindowTest):
         self._parent_window.getmaxyx.return_value = (10, 30)
         win = LogWindow(self._manager, None, 200)
 
-        self._curses.newpad.assert_called_with(10, 201)
+        self._curses.newpad.assert_called_with(9, 201)
 
     def test_should_resize_window(self):
         self._parent_window.getmaxyx.return_value = (10, 30)
         win = LogWindow(self._manager, None, 200)
 
         win.resize(20, 40)
-        self._pad.resize(20, 201)
+        self._pad.resize.assert_called_once_with(19, 201)
 
     def test_should_scroll_right(self):
         self._parent_window.getmaxyx.return_value = (10, 30)
@@ -99,7 +99,7 @@ class LogWindowTest(WindowTest):
 
         win.refresh()
         self._pad.clear.assert_called_once_with()
-        self._pad.noutrefresh.assert_called_once_with(0, 0, 0, 0, 9, 29)
+        self._pad.noutrefresh.assert_called_once_with(0, 0, 0, 0, 8, 29)
 
         self.assertEqual([
             ((0, 0, '06-04 00:00:00', 14, 0),),
@@ -108,6 +108,16 @@ class LogWindowTest(WindowTest):
             ((0, 41, 'KERN', 4, 0),),
             ((0, 46, 'DEBUG', 3, 0x206),),
             ((0, 50, 'test message', 50, 0),)], self._pad.addnstr.call_args_list)
+
+    def test_should_draw_status_bar(self):
+        self._parent_window.getmaxyx.return_value = (10, 30)
+        win = LogWindow(self._manager, LogWindowTest.FakeBuffer([]), 100)
+
+        win.refresh()
+        self._parent_window.addnstr.assert_called_once_with(9, 0,
+            ' [l]evel: debug  [f]acility: ALL  [p]rogram: *  [h]ost: *', 29)
+        self._parent_window.chgat.assert_called_once_with(9, 0, 30, 0x300)
+        self._parent_window.noutrefresh.assert_called_once_with()
 
     def test_should_draw_continuation_line(self):
         buf = LogWindowTest.FakeBuffer([({}, False), ({}, True)])
@@ -148,7 +158,7 @@ class LogWindowTest(WindowTest):
 
         win.scroll_right()
         win.refresh()
-        self._pad.noutrefresh.assert_called_once_with(0, 4, 0, 0, 9, 29)
+        self._pad.noutrefresh.assert_called_once_with(0, 4, 0, 0, 8, 29)
 
     def test_should_draw_alert_line(self):
         buf = LogWindowTest.FakeBuffer([({ 'level_num': 1 }, True)])
@@ -403,3 +413,17 @@ class FilterTest(unittest.TestCase):
         filter = FilterState()
         filter.program = ''
         self.assertIsNone(filter.program)
+
+    def test_should_get_empty_filter_summary(self):
+        filter = FilterState()
+        self.assertEqual((('[l]evel', 'debug'), ('[f]acility', 'ALL'),
+            ('[p]rogram', '*'), ('[h]ost', '*')), filter.get_summary())
+
+    def test_should_get_non_empty_filter_summary(self):
+        filter = FilterState()
+        filter.level = 6
+        filter.facility = 0
+        filter.host = 'example'
+        filter.program = 'test'
+        self.assertEqual((('[l]evel', 'info'), ('[f]acility', 'kern'),
+            ('[p]rogram', 'test'), ('[h]ost', 'example')), filter.get_summary())

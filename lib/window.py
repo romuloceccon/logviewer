@@ -1,8 +1,7 @@
 import curses
 import datetime
 
-import screen_buffer
-
+from screen_buffer import ScreenBuffer
 from screen_cursor import ScreenCursor
 from text_input import TextInput
 from utf8_parser import Utf8Parser
@@ -73,9 +72,11 @@ class LogWindow(Window):
         # can write a character at the last column of the last line without
         # raising a curses error
         self._pad_width = max_width + 1
-        self._pad = self._curses.newpad(h, self._pad_width)
+        self._pad = self._curses.newpad(h - 1, self._pad_width)
         self._pad_x = 0
         self._pad_x_max = self._max_width - w
+
+        self._filter_state = FilterState()
 
         self._level_attrs = {
             'emerg':   self._curses.color_pair(1) | self._curses.A_REVERSE,
@@ -87,6 +88,10 @@ class LogWindow(Window):
             'info':    self._curses.color_pair(5) | self._curses.A_BOLD,
             'debug':   self._curses.color_pair(6) | self._curses.A_BOLD }
 
+    @property
+    def filter_state(self):
+        return self._filter_state
+
     def _pos(self, i):
         return sum(LogWindow.WIDTHS[:i]) + i
 
@@ -97,6 +102,10 @@ class LogWindow(Window):
 
     def _update_line(self, y, p, val, attr=0):
         self._pad.addnstr(y, self._pos(p), val, self._width(p), attr)
+
+    def _get_filter_state_desc(self):
+        return ' ' + '  '.join('{}: {}'.format(a, b) for (a, b) in \
+            self._filter_state.get_summary())
 
     def refresh(self):
         self._pad.clear()
@@ -113,10 +122,14 @@ class LogWindow(Window):
             self._update_line(i, 5, line.message)
 
         y, x = self._curses_window.getmaxyx()
-        self._pad.noutrefresh(0, self._pad_x, 0, 0, y - 1, x - 1)
+
+        self._curses_window.addnstr(y - 1, 0, self._get_filter_state_desc(), x - 1)
+        self._curses_window.chgat(y - 1, 0, x, self._curses.A_BOLD | self._curses.A_REVERSE)
+        self._curses_window.noutrefresh()
+        self._pad.noutrefresh(0, self._pad_x, 0, 0, y - 2, x - 1)
 
     def resize(self, h, w):
-        self._pad.resize(h, self._pad_width)
+        self._pad.resize(h - 1, self._pad_width)
         self._pad_x_max = max(0, self._max_width - w)
         self._pad_x = min(self._pad_x, self._pad_x_max)
 
@@ -283,7 +296,7 @@ class TextWindow(CenteredWindow):
 class FilterState(object):
     def __init__(self):
         self._level = None
-        self._max_level = len(screen_buffer.ScreenBuffer.Line.LEVELS) - 1
+        self._max_level = len(ScreenBuffer.Line.LEVELS) - 1
         self._facility = None
         self._host = None
         self._program = None
@@ -332,3 +345,13 @@ class FilterState(object):
             self._program = val
         else:
             self._program = None
+
+    def get_summary(self):
+        if self.facility is None:
+            facility = ('[f]acility', 'ALL')
+        else:
+            facility = ('[f]acility', ScreenBuffer.Line.FACILITIES[self.facility])
+        level = ('[l]evel', ScreenBuffer.Line.LEVELS[self.level])
+        program = ('[p]rogram', self.program or '*')
+        host = ('[h]ost', self.host or '*')
+        return (level, facility, program, host)

@@ -96,50 +96,52 @@ class MainWindow(LogWindow):
         curses_window = window_manager.curses_window
         h, w = curses_window.getmaxyx()
 
-        self._buf = ScreenBuffer(page_size=h)
+        self._buf = ScreenBuffer(page_size=h - 1)
         self._buf.add_observer(window_manager.poll.observer)
 
         LogWindow.__init__(self, window_manager, self._buf, 500)
 
         self._driver_factory = driver_factory
 
-        self._filter_state = FilterState()
-
     def _change_level(self):
         window = LevelWindow(self.window_manager)
-        window.position = self._filter_state.level
+        window.position = self.filter_state.level
         if window.show():
-            self._filter_state.level = window.position
-            self._buf.restart(self._driver_factory.create_driver(self._filter_state))
+            self.filter_state.level = window.position
+            self._buf.restart(self._driver_factory.create_driver(self.filter_state))
 
     def _change_facility(self):
         window = FacilityWindow(self.window_manager)
-        window.position = 0 if self._filter_state.facility is None else \
-            self._filter_state.facility + 1
+        window.position = 0 if self.filter_state.facility is None else \
+            self.filter_state.facility + 1
         if window.show():
-            self._filter_state.facility = None if window.position == 0 else \
+            self.filter_state.facility = None if window.position == 0 else \
                 window.position - 1
-            self._buf.restart(self._driver_factory.create_driver(self._filter_state))
+            self._buf.restart(self._driver_factory.create_driver(self.filter_state))
 
     def _change_host(self):
         window = TextWindow(self.window_manager, 'Host', 70)
-        window.text = self._filter_state.host or ''
+        window.text = self.filter_state.host or ''
         if window.show():
-            self._filter_state.host = window.text
-            self._buf.restart(self._driver_factory.create_driver(self._filter_state))
+            self.filter_state.host = window.text
+            self._buf.restart(self._driver_factory.create_driver(self.filter_state))
 
     def _change_program(self):
         window = TextWindow(self.window_manager, 'Program', 70)
-        window.text = self._filter_state.program or ''
+        window.text = self.filter_state.program or ''
         if window.show():
-            self._filter_state.program = window.text
-            self._buf.restart(self._driver_factory.create_driver(self._filter_state))
+            self.filter_state.program = window.text
+            self._buf.restart(self._driver_factory.create_driver(self.filter_state))
 
     def start(self):
         self._buf.start(Sqlite3Driver('test.db'))
 
     def finish(self):
         self._buf.stop()
+
+    def resize(self, h, w):
+        LogWindow.resize(self, h, w)
+        self._buf.page_size = h - 1
 
     def handle_key(self, k):
         if k == ord('q'):
