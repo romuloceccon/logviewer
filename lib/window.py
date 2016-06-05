@@ -1,4 +1,5 @@
 import curses
+import datetime
 
 import screen_buffer
 
@@ -53,6 +54,77 @@ class Window(object):
 
     def resize(self, height, width):
         raise RuntimeError('Not implemented')
+
+class LogWindow(Window):
+    STEP = 4
+    WIDTHS = [14, 8, 16, 4, 3]
+
+    def __init__(self, window_manager, buffer, max_width):
+        Window.__init__(self, window_manager)
+
+        self._buf = buffer
+
+        self._curses = window_manager.curses
+        self._curses_window = window_manager.curses_window
+        h, w = self._curses_window.getmaxyx()
+
+        self._max_width = max_width
+        # pad should be one character wider than the maximum text width so we
+        # can write a character at the last column of the last line without
+        # raising a curses error
+        self._pad_width = max_width + 1
+        self._pad = self._curses.newpad(h, self._pad_width)
+        self._pad_x = 0
+        self._pad_x_max = self._max_width - w
+
+        self._level_attrs = {
+            'emerg':   self._curses.color_pair(1) | self._curses.A_REVERSE,
+            'alert':   self._curses.color_pair(1) | self._curses.A_REVERSE,
+            'crit':    self._curses.color_pair(1) | self._curses.A_BOLD,
+            'err':     self._curses.color_pair(2) | self._curses.A_BOLD,
+            'warning': self._curses.color_pair(3) | self._curses.A_BOLD,
+            'notice':  self._curses.color_pair(4) | self._curses.A_BOLD,
+            'info':    self._curses.color_pair(5) | self._curses.A_BOLD,
+            'debug':   self._curses.color_pair(6) | self._curses.A_BOLD }
+
+    def _pos(self, i):
+        return sum(LogWindow.WIDTHS[:i]) + i
+
+    def _width(self, i):
+        if i >= len(LogWindow.WIDTHS):
+            return self._max_width - sum(LogWindow.WIDTHS) - len(LogWindow.WIDTHS)
+        return LogWindow.WIDTHS[i]
+
+    def _update_line(self, y, p, val, attr=0):
+        self._pad.addnstr(y, self._pos(p), val, self._width(p), attr)
+
+    def refresh(self):
+        self._pad.clear()
+
+        for i, line in enumerate(self._buf.get_current_lines()):
+            if not line.is_continuation or i == 0:
+                dt_str = datetime.datetime.strftime(line.datetime, '%m-%d %H:%M:%S')
+                self._update_line(i, 0, dt_str)
+                self._update_line(i, 1, line.host)
+                self._update_line(i, 2, line.program)
+                self._update_line(i, 3, line.facility.upper())
+                self._update_line(i, 4, line.level.upper(),
+                    self._level_attrs.get(line.level, 0))
+            self._update_line(i, 5, line.message)
+
+        y, x = self._curses_window.getmaxyx()
+        self._pad.noutrefresh(0, self._pad_x, 0, 0, y - 1, x - 1)
+
+    def resize(self, h, w):
+        self._pad.resize(h, self._pad_width)
+        self._pad_x_max = max(0, self._max_width - w)
+        self._pad_x = min(self._pad_x, self._pad_x_max)
+
+    def scroll_left(self):
+        self._pad_x = max(self._pad_x - LogWindow.STEP, 0)
+
+    def scroll_right(self):
+        self._pad_x = min(self._pad_x + LogWindow.STEP, self._pad_x_max)
 
 class CenteredWindow(Window):
     def __init__(self, window_manager, title, height, width, min_height,
