@@ -217,7 +217,15 @@ class ScreenBuffer(object):
             old_len = len(self._lines)
             for line in self._build_lines(rec):
                 self._lines.append(line)
-            notify = old_len < self._page_size
+
+            if old_len - self._position <= self._page_size:
+                notify = True
+                self._set_position(len(self._lines) - self._page_size)
+            elif old_len < self._page_size:
+                notify = True
+            else:
+                notify = False
+
         if notify:
             self._notify_observers()
 

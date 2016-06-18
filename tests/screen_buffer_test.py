@@ -192,7 +192,7 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual('2', cur[0].message)
         self.assertEqual('3', cur[1].message)
 
-    def test_should_append_record_past_end_of_screen(self):
+    def test_should_auto_scroll_on_append_if_screen_is_at_end_of_buffer(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
 
         buf.append_record(self._get_line(2))
@@ -200,6 +200,29 @@ class ScreenBufferTest(unittest.TestCase):
 
         buf.add_observer(self.observer.notify)
         buf.append_record(self._get_line(4))
+
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('3', cur[0].message)
+        self.assertEqual('4', cur[1].message)
+
+        self.assertEqual(1, self.observer.count)
+
+    def test_should_not_auto_scroll_if_not_at_end_of_buffer(self):
+        buf = ScreenBuffer(page_size=2, buffer_size=5)
+
+        buf.append_record(self._get_line(2))
+        buf.append_record(self._get_line(3))
+        buf.append_record(self._get_line(4))
+        buf.go_to_previous_line()
+
+        buf.add_observer(self.observer.notify)
+
+        buf.append_record(self._get_line(5))
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('2', cur[0].message)
+
         self.assertEqual(0, self.observer.count)
 
     def test_should_prepend_record_on_buffer_not_at_end_of_screen(self):
@@ -208,6 +231,7 @@ class ScreenBufferTest(unittest.TestCase):
         buf.append_record(self._get_line(2))
         buf.append_record(self._get_line(3))
         buf.append_record(self._get_line(4))
+        buf.go_to_previous_line()
         buf.prepend_record(self._get_line(1))
         cur = buf.get_current_lines()
         self.assertEqual(2, len(cur))
@@ -236,15 +260,15 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual('2', cur[0].message)
         self.assertEqual('3', cur[1].message)
 
-    def test_should_append_multi_line_record(self):
+    def test_should_append_multi_line_record_spanning_over_end_of_buffer(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
 
         buf.append_record(self._get_line(1))
         buf.append_record(self._get_line(2, 'a\nb'))
         cur = buf.get_current_lines()
         self.assertEqual(2, len(cur))
-        self.assertEqual('1', cur[0].message)
-        self.assertEqual('a', cur[1].message)
+        self.assertEqual('a', cur[0].message)
+        self.assertEqual('b', cur[1].message)
 
     def test_should_stop_observing(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
@@ -273,11 +297,12 @@ class ScreenBufferTest(unittest.TestCase):
         for i in range(10):
             buf.append_record(self._get_line(i + 1))
 
+        buf.go_to_previous_page()
         buf.go_to_next_line()
 
         cur = buf.get_current_lines()
         self.assertEqual(2, len(cur))
-        self.assertEqual('2', cur[0].message)
+        self.assertEqual('8', cur[0].message)
 
     def test_should_go_to_previous_page(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
@@ -309,11 +334,13 @@ class ScreenBufferTest(unittest.TestCase):
         for i in range(10):
             buf.append_record(self._get_line(i + 1))
 
+        buf.go_to_previous_page()
+        buf.go_to_previous_line()
         buf.go_to_next_page()
 
         cur = buf.get_current_lines()
         self.assertEqual(2, len(cur))
-        self.assertEqual('3', cur[0].message)
+        self.assertEqual('8', cur[0].message)
 
     def test_should_go_to_next_page_with_less_lines_than_page_size(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
@@ -379,6 +406,8 @@ class ScreenBufferTest(unittest.TestCase):
 
         for i in range(10, 20):
             buf.append_record(self._get_line(i + 1))
+        for i in range(0, 3):
+            buf.go_to_previous_page()
 
         self.assertEqual(((11, True, 5),), buf.get_buffer_instructions())
 
@@ -387,9 +416,9 @@ class ScreenBufferTest(unittest.TestCase):
 
         for i in range(10, 20):
             buf.append_record(self._get_line(i + 1))
-        buf.go_to_next_line()
-        buf.go_to_next_line()
-        buf.go_to_next_line()
+        buf.go_to_previous_page()
+        buf.go_to_previous_page()
+        buf.go_to_previous_line()
 
         self.assertEqual(tuple(), buf.get_buffer_instructions())
 
@@ -500,15 +529,13 @@ class ScreenBufferTest(unittest.TestCase):
         buf.get_records(drv)
 
         self.queue.push_forward_records(6, 5)
-
         buf.get_records(drv)
 
-        buf.go_to_next_page()
         cur = buf.get_current_lines()
 
         self.assertEqual(2, len(cur))
-        self.assertEqual('6', cur[0].message)
-        self.assertEqual('7', cur[1].message)
+        self.assertEqual('9', cur[0].message)
+        self.assertEqual('10', cur[1].message)
 
     def test_should_stop_fetching_if_fetch_returns_less_records_than_asked(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
