@@ -96,7 +96,7 @@ class MainWindow(LogWindow):
         curses_window = window_manager.curses_window
         h, w = curses_window.getmaxyx()
 
-        self._buf = ScreenBuffer(page_size=h - 1)
+        self._buf = ScreenBuffer(page_size=h - 1, timeout=2.0)
         self._buf.add_observer(window_manager.poll.observer)
 
         LogWindow.__init__(self, window_manager, self._buf, 500)

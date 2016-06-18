@@ -1,7 +1,7 @@
 import unittest
 import threading
 import random
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, patch
 
 from screen_buffer import ScreenBuffer
 
@@ -575,3 +575,59 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual(2, len(cur))
         self.assertEqual('6', cur[0].message)
         self.assertEqual('7', cur[1].message)
+
+    def test_should_get_timeout_after_first_fetch(self):
+        buf = ScreenBuffer(2, buffer_size=5, timeout=13)
+        drv = ScreenBufferTest.FakeDriver(self.queue)
+
+        self.queue.push_backward_records(7, 7)
+        self.assertEqual(13, buf.get_records(drv))
+
+    def test_should_get_timeout_if_forward_fetch_returns_fewer_records(self):
+        buf = ScreenBuffer(2, buffer_size=5, timeout=13)
+        drv = ScreenBufferTest.FakeDriver(self.queue)
+
+        self.queue.push_backward_records(7, 7)
+        buf.get_records(drv)
+
+        buf.go_to_previous_line()
+        self.queue.push_forward_records(8, 4)
+        self.assertEqual(13, buf.get_records(drv))
+
+    def test_should_not_get_timeout_if_forward_fetch_returns_correct_number_of_records(self):
+        buf = ScreenBuffer(2, buffer_size=5, timeout=13)
+        drv = ScreenBufferTest.FakeDriver(self.queue)
+
+        self.queue.push_backward_records(7, 7)
+        buf.get_records(drv)
+
+        buf.go_to_previous_line()
+        self.queue.push_forward_records(8, 5)
+        self.assertIsNone(buf.get_records(drv))
+
+    def test_should_not_get_timeout_if_backward_fetch_returns_fewer_records(self):
+        buf = ScreenBuffer(2, buffer_size=5, timeout=13)
+        drv = ScreenBufferTest.FakeDriver(self.queue)
+
+        self.queue.push_backward_records(14, 7)
+        buf.get_records(drv)
+
+        buf.go_to_previous_page()
+        buf.go_to_previous_page()
+        self.queue.push_backward_records(7, 4)
+        self.assertIsNone(buf.get_records(drv))
+
+    def test_should_wait_with_timeout(self):
+        buf = ScreenBuffer(2, buffer_size=5, timeout=13)
+        drv = ScreenBufferTest.FakeDriver(self.queue)
+
+        with patch.object(buf._condition_var, 'wait',
+                wraps=buf._condition_var.wait) as cond_wait:
+            buf.start(drv)
+            drv.started.wait()
+
+            self.queue.push_backward_records(14, 7)
+            self.queue.wait()
+
+            buf.stop()
+            cond_wait.assert_called_once_with(13)

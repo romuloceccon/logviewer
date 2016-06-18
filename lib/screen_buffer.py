@@ -3,6 +3,7 @@ import threading
 class ScreenBuffer(object):
     STOP = 1
     GET_RECORDS = 2
+    TIMEOUT = 3
 
     class Driver(object):
         def start_connection(self):
@@ -27,11 +28,12 @@ class ScreenBuffer(object):
             self._screen_buffer.clear()
             self._driver.start_connection()
             try:
+                timeout = None
                 while True:
-                    cmd = self._screen_buffer._wait_event()
+                    cmd = self._screen_buffer._wait_event(timeout)
                     if cmd == ScreenBuffer.STOP:
                         return
-                    self._screen_buffer.get_records(self._driver)
+                    timeout = self._screen_buffer.get_records(self._driver)
             finally:
                 self._driver.stop_connection()
 
@@ -94,7 +96,8 @@ class ScreenBuffer(object):
         def is_continuation(self):
             return self._is_continuation
 
-    def __init__(self, page_size, buffer_size=None, low_buffer_threshold=None):
+    def __init__(self, page_size, buffer_size=None, low_buffer_threshold=None,
+            timeout=None):
         self._observers = set()
 
         self._page_size = page_size
@@ -102,6 +105,7 @@ class ScreenBuffer(object):
             if not buffer_size is None else page_size * 5
         self._low_buffer_threshold = low_buffer_threshold \
             if not low_buffer_threshold is None else page_size
+        self._timeout = timeout
 
         self._lines = None
         self._position = None
@@ -138,13 +142,14 @@ class ScreenBuffer(object):
         for observer in self._observers:
             observer()
 
-    def _wait_event(self):
+    def _wait_event(self, timeout=None):
         if not self._condition_var:
             return
 
         with self._condition_var:
             while not (self._stopped or self._invalid):
-                self._condition_var.wait()
+                if not self._condition_var.wait(timeout):
+                    return ScreenBuffer.TIMEOUT
             if self._stopped:
                 return ScreenBuffer.STOP
             self._invalid = False
@@ -229,6 +234,7 @@ class ScreenBuffer(object):
 
         with self._lock:
             if self._lines:
+
                 if self._position + self._page_size >= len(self._lines) - self._low_buffer_threshold:
                     result.append((self._lines[-1].id, False, self._buffer_size))
                 if self._position <= self._low_buffer_threshold:
@@ -239,6 +245,8 @@ class ScreenBuffer(object):
         return tuple(result)
 
     def get_records(self, driver):
+        result = None
+
         for start, desc, count in self.get_buffer_instructions():
             if desc and self._bottom_seen:
                 continue
@@ -255,6 +263,10 @@ class ScreenBuffer(object):
                     self.append_record(rec)
             if desc and count > 0:
                 self._bottom_seen = True
+            if count > 0 and not desc or start is None:
+                result = self._timeout
+
+        return result
 
     def clear(self):
         with self._lock:
