@@ -26,12 +26,25 @@ class ScreenBufferTest(unittest.TestCase):
                 self._cv.notify()
             return result
 
+        def push_backward_records(self, start, count):
+            for x in range(start, start - count, -1):
+                self.push(x)
+            self.push(None)
+
+        def push_forward_records(self, start, count):
+            for x in range(start, start + count):
+                self.push(x)
+            self.push(None)
+
         def is_empty(self):
             with self._lock:
                 return len(self._list) == 0
 
         def push_none_and_wait(self):
             self.push(None)
+            self.wait()
+
+        def wait(self):
             with self._cv:
                 while len(self._list) != 0:
                     self._cv.wait()
@@ -434,9 +447,8 @@ class ScreenBufferTest(unittest.TestCase):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
 
         buf.start(drv)
-        for x in range(2, 0, -1):
-            self.queue.push(x)
-        self.queue.push_none_and_wait()
+        self.queue.push_backward_records(2, 2)
+        self.queue.wait()
 
         queue2 = ScreenBufferTest.Queue()
         drv2 = ScreenBufferTest.FakeDriver(queue2)
@@ -453,9 +465,8 @@ class ScreenBufferTest(unittest.TestCase):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
 
         buf.start(drv)
-        for x in range(2, 0, -1):
-            self.queue.push(x)
-        self.queue.push_none_and_wait()
+        self.queue.push_backward_records(2, 2)
+        self.queue.wait()
 
         cur = buf.get_current_lines()
         buf.stop()
@@ -470,9 +481,7 @@ class ScreenBufferTest(unittest.TestCase):
     def test_should_fetch_records_in_descending_order(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
 
-        for x in range(2, 0, -1):
-            self.queue.push(x)
-        self.queue.push(None)
+        self.queue.push_backward_records(2, 2)
 
         drv = ScreenBufferTest.FakeDriver(self.queue)
         buf.get_records(drv)
@@ -485,16 +494,12 @@ class ScreenBufferTest(unittest.TestCase):
     def test_should_fetch_records_in_ascending_order(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
 
-        for x in range(5, 0, -1):
-            self.queue.push(x)
-        self.queue.push(None)
+        self.queue.push_backward_records(5, 5)
 
         drv = ScreenBufferTest.FakeDriver(self.queue)
         buf.get_records(drv)
 
-        for x in range(6, 11):
-            self.queue.push(x)
-        self.queue.push(None)
+        self.queue.push_forward_records(6, 5)
 
         buf.get_records(drv)
 
@@ -510,9 +515,7 @@ class ScreenBufferTest(unittest.TestCase):
 
         drv = ScreenBufferTest.FakeDriver(self.queue)
 
-        for x in range(6, 0, -1):
-            self.queue.push(x)
-        self.queue.push(None)
+        self.queue.push_backward_records(6, 6)
 
         buf.get_records(drv)
 
@@ -532,17 +535,13 @@ class ScreenBufferTest(unittest.TestCase):
 
         drv = ScreenBufferTest.FakeDriver(self.queue)
 
-        for x in range(14, 7, -1):
-            self.queue.push(x)
-        self.queue.push(None)
+        self.queue.push_backward_records(14, 7)
         buf.get_records(drv)
 
         buf.go_to_previous_page()
         buf.go_to_previous_page()
 
-        for x in range(7, 0, -1):
-            self.queue.push(x)
-        self.queue.push(None)
+        self.queue.push_backward_records(7, 7)
         buf.get_records(drv)
 
         buf.go_to_previous_page()
@@ -557,9 +556,7 @@ class ScreenBufferTest(unittest.TestCase):
 
         drv = ScreenBufferTest.FakeDriver(self.queue)
 
-        for x in range(14, 7, -1):
-            self.queue.push(x)
-        self.queue.push(None)
+        self.queue.push_backward_records(14, 7)
         buf.get_records(drv)
 
         buf.go_to_previous_line()
@@ -569,9 +566,7 @@ class ScreenBufferTest(unittest.TestCase):
         buf.go_to_previous_page()
         buf.go_to_previous_page()
 
-        for x in range(7, 0, -1):
-            self.queue.push(x)
-        self.queue.push(None)
+        self.queue.push_backward_records(7, 7)
         buf.get_records(drv)
 
         buf.go_to_previous_page()
