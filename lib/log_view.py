@@ -6,7 +6,6 @@ import datetime
 import struct
 
 from screen_buffer import ScreenBuffer
-from sqlite3_driver import Sqlite3Driver
 from text_input import TextInput
 from utf8_parser import Utf8Parser
 from window import Window, LogWindow, SelectWindow, TextWindow, FilterState
@@ -92,16 +91,16 @@ class Manager(object):
         main_window.show()
 
 class MainWindow(LogWindow):
-    def __init__(self, window_manager, driver_factory):
+    def __init__(self, window_manager, configuration):
         curses_window = window_manager.curses_window
         h, w = curses_window.getmaxyx()
 
-        self._buf = ScreenBuffer(page_size=h - 1, timeout=2.0)
+        self._buf = ScreenBuffer(page_size=h - 1, timeout=configuration.timeout)
         self._buf.add_observer(window_manager.poll.observer)
 
         LogWindow.__init__(self, window_manager, self._buf, 500)
 
-        self._driver_factory = driver_factory
+        self._driver_factory = configuration.get_factory()
 
     def _change_level(self):
         window = LevelWindow(self.window_manager)
@@ -134,7 +133,7 @@ class MainWindow(LogWindow):
             self._buf.restart(self._driver_factory.create_driver(self.filter_state))
 
     def start(self):
-        self._buf.start(Sqlite3Driver('test.db'))
+        self._buf.start(self._driver_factory.create_driver(self.filter_state))
 
     def finish(self):
         self._buf.stop()

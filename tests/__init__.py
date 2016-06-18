@@ -1,3 +1,4 @@
+from . configuration_test import *
 from . screen_buffer_test import *
 from . screen_cursor_test import *
 from . sql_driver_test import *

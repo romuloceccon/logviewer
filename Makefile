@@ -4,4 +4,4 @@ test :
 	PYTHONPATH=lib python -m unittest tests
 
 run :
-	PYTHONPATH=lib python bin/log-viewer.py
+	PYTHONPATH=lib python bin/log-viewer.py conf.conf
