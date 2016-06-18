@@ -42,8 +42,19 @@ filename = test.db
 
         config = Configuration(self._conf_file, {})
         self.assertIsNone(config.timeout)
-        self.assertIsNone(config.get_factory())
+        self.assertRaises(Configuration.Error, config.get_factory)
 
     def test_should_fail_if_file_is_missing(self):
+        self.assertRaises(Configuration.Error,
+            Configuration, self._conf_file, {})
+
+    def test_should_validate_backend(self):
+        with open(self._conf_file, 'w+') as f:
+            f.write('''[main]
+backend = oracle
+
+[oracle]
+database = test
+''')
         self.assertRaises(Configuration.Error,
             Configuration, self._conf_file, {})

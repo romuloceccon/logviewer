@@ -27,6 +27,9 @@ class Configuration(object):
             self._timeout = float(main['timeout'])
         if 'backend' in main:
             backend = main['backend']
+            if not backend in self._driver_map:
+                raise Configuration.Error("Invalid backend `{}`. Maybe some "\
+                    "dependency is missing?".format(backend))
             self._driver = self._driver_map[backend]
             self._driver_args = config[backend]
 
@@ -36,5 +39,5 @@ class Configuration(object):
 
     def get_factory(self):
         if not self._driver:
-            return
+            raise Configuration.Error("No backend configured")
         return self._driver(**(self._driver_args))
