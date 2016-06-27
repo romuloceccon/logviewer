@@ -8,7 +8,8 @@ import struct
 from screen_buffer import ScreenBuffer
 from text_input import TextInput
 from utf8_parser import Utf8Parser
-from window import Window, LogWindow, SelectWindow, TextWindow, FilterState
+from window import Window, LogWindow, SelectWindow, TextWindow, DatetimeWindow
+from window import FilterState
 
 class EventPoll(object):
     def __init__(self):
@@ -102,6 +103,12 @@ class MainWindow(LogWindow):
 
         self._driver_factory = configuration.get_factory()
 
+    def _change_date(self):
+        lines = self._buf.get_current_lines()
+        dt = lines[0].datetime if len(lines) > 0 else datetime.datetime.utcnow()
+        window = DatetimeWindow(self.window_manager, 'Date', dt)
+        window.show()
+
     def _change_level(self):
         window = LevelWindow(self.window_manager)
         window.position = self.filter_state.level
@@ -145,6 +152,8 @@ class MainWindow(LogWindow):
     def handle_key(self, k):
         if k == ord('q'):
             self.close(None)
+        elif k == ord('d'):
+            self._change_date()
         elif k == ord('l'):
             self._change_level()
         elif k == ord('f'):

@@ -294,6 +294,39 @@ class TextWindow(CenteredWindow):
     def finish(self):
         self._curses.curs_set(0)
 
+class DatetimeWindow(CenteredWindow):
+    def __init__(self, window_manager, title, dt):
+        self._datetime_state = DatetimeState(dt)
+        width = len(self._datetime_state.text)
+        CenteredWindow.__init__(self, window_manager, title, 1, width, 1, width)
+
+    def handle_key(self, k):
+        if k == ord('\n'):
+            self.close(True)
+        elif k == 27:
+            if self._parent.getch() == -1:
+                self.close(False)
+        elif k == curses.KEY_RIGHT:
+            self._datetime_state.move_right()
+        elif k == curses.KEY_LEFT:
+            self._datetime_state.move_left()
+        elif k == curses.KEY_UP:
+            self._datetime_state.increment()
+        elif k == curses.KEY_DOWN:
+            self._datetime_state.decrement()
+
+    def refresh(self):
+        CenteredWindow.refresh(self)
+
+        if not self._curses_window:
+            return
+
+        self._curses_window.addstr(self._border, self._border,
+            self._datetime_state.text)
+        offset, count = self._datetime_state.position
+        self._curses_window.chgat(2, 2 + offset, count, 0)
+        self._curses_window.noutrefresh()
+
 class FilterState(object):
     def __init__(self):
         self._level = None

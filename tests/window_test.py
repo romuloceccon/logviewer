@@ -370,6 +370,67 @@ class TextWindowTest(WindowTest):
         win.handle_key(ord('x'))
         self.assertEqual('test textx', win.text)
 
+class DatetimeWindowTest(WindowTest):
+    def test_should_create_window(self):
+        self._parent_window.getmaxyx.return_value = (9, 30)
+        win = DatetimeWindow(self._manager, 'Date', datetime.datetime.utcnow())
+
+        self._parent_window.subwin.assert_called_with(5, 23, 2, 3)
+        self._child_window.bkgd.assert_called_with(256)
+
+    def test_should_refresh_window(self):
+        self._parent_window.getmaxyx.return_value = (9, 30)
+        dt = datetime.datetime(2016, 6, 27, 21, 45, 47)
+
+        win = DatetimeWindow(self._manager, 'Date', dt)
+        win.refresh()
+
+        self.assertEqual([((0, 8, '|Date|'),), ((2, 2, '2016-06-27 21:45:47'),)],
+            self._child_window.addstr.call_args_list)
+        self._child_window.chgat.assert_called_once_with(2, 2, 4, 0)
+        self._child_window.noutrefresh.assert_called_with()
+
+    def test_should_handle_key_right(self):
+        self._parent_window.getmaxyx.return_value = (9, 30)
+
+        win = DatetimeWindow(self._manager, 'Date', datetime.datetime.utcnow())
+        win.handle_key(curses.KEY_RIGHT)
+        win.refresh()
+
+        self._child_window.chgat.assert_called_once_with(2, 7, 2, 0)
+
+    def test_should_handle_key_left(self):
+        self._parent_window.getmaxyx.return_value = (9, 30)
+
+        win = DatetimeWindow(self._manager, 'Date', datetime.datetime.utcnow())
+        win.handle_key(curses.KEY_RIGHT)
+        win.handle_key(curses.KEY_LEFT)
+        win.refresh()
+
+        self._child_window.chgat.assert_called_once_with(2, 2, 4, 0)
+
+    def test_should_handle_key_up(self):
+        self._parent_window.getmaxyx.return_value = (9, 30)
+        dt = datetime.datetime(2016, 6, 27, 22, 6, 28)
+
+        win = DatetimeWindow(self._manager, 'Date', dt)
+        win.handle_key(curses.KEY_UP)
+        win.refresh()
+
+        self.assertEqual([((0, 8, '|Date|'),), ((2, 2, '2017-06-27 22:06:28'),)],
+            self._child_window.addstr.call_args_list)
+
+    def test_should_handle_key_down(self):
+        self._parent_window.getmaxyx.return_value = (9, 30)
+        dt = datetime.datetime(2016, 6, 27, 22, 7, 41)
+
+        win = DatetimeWindow(self._manager, 'Date', dt)
+        win.handle_key(curses.KEY_DOWN)
+        win.refresh()
+
+        self.assertEqual([((0, 8, '|Date|'),), ((2, 2, '2015-06-27 22:07:41'),)],
+            self._child_window.addstr.call_args_list)
+
 class FilterTest(unittest.TestCase):
     def test_should_create_filter_state(self):
         filter = FilterState()
