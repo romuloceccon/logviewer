@@ -427,3 +427,125 @@ class FilterTest(unittest.TestCase):
         filter.program = 'test'
         self.assertEqual((('[l]evel', 'info'), ('[f]acility', 'kern'),
             ('[p]rogram', 'test'), ('[h]ost', 'example')), filter.get_summary())
+
+class DatetimeStateTest(unittest.TestCase):
+    def test_should_initialize_datetime_state(self):
+        dt = datetime.datetime(2016, 6, 27, 18, 56, 30)
+        state = DatetimeState(dt)
+        self.assertEqual('2016-06-27 18:56:30', state.text)
+        self.assertEqual(datetime.datetime(2016, 6, 27, 18, 56, 30),
+            state.value)
+
+    def test_should_get_year_position(self):
+        state = DatetimeState(datetime.datetime.utcnow())
+        self.assertEqual((0, 4), state.position)
+
+    def test_should_go_to_month_position(self):
+        state = DatetimeState(datetime.datetime.utcnow())
+        state.move_right()
+        self.assertEqual((5, 2), state.position)
+
+    def test_should_go_back_to_year_position(self):
+        state = DatetimeState(datetime.datetime.utcnow())
+        state.move_right()
+        state.move_left()
+        self.assertEqual((0, 4), state.position)
+
+    def test_should_honor_left_boundary(self):
+        state = DatetimeState(datetime.datetime.utcnow())
+        state.move_right()
+        state.move_left()
+        state.move_left()
+        self.assertEqual((0, 4), state.position)
+
+    def test_should_honor_right_boundary(self):
+        state = DatetimeState(datetime.datetime.utcnow())
+        for i in range(6):
+            state.move_right()
+        self.assertEqual((17, 2), state.position)
+
+    def test_should_increment_year(self):
+        dt = datetime.datetime(2016, 6, 27, 19, 10, 3)
+        state = DatetimeState(dt)
+        state.increment()
+        self.assertEqual('2017-06-27 19:10:03', state.text)
+
+    def test_should_increment_from_leap_year(self):
+        dt = datetime.datetime(2016, 2, 29, 0, 0, 0)
+        state = DatetimeState(dt)
+        state.increment()
+        self.assertEqual('2017-02-28 00:00:00', state.text)
+
+    def test_should_decrement_year(self):
+        dt = datetime.datetime(2016, 6, 27, 19, 20, 4)
+        state = DatetimeState(dt)
+        state.decrement()
+        self.assertEqual('2015-06-27 19:20:04', state.text)
+
+    def test_should_increment_month(self):
+        dt = datetime.datetime(2016, 6, 27, 19, 28, 52)
+        state = DatetimeState(dt)
+        state.move_right()
+        state.increment()
+        self.assertEqual('2016-07-27 19:28:52', state.text)
+
+    def test_should_increment_from_long_month(self):
+        dt = datetime.datetime(2016, 1, 31, 0, 0, 0)
+        state = DatetimeState(dt)
+        state.move_right()
+        state.increment()
+        self.assertEqual('2016-02-29 00:00:00', state.text)
+
+    def test_should_increment_month_at_end_of_year(self):
+        dt = datetime.datetime(2015, 12, 1, 0, 0, 0)
+        state = DatetimeState(dt)
+        state.move_right()
+        state.increment()
+        self.assertEqual('2016-01-01 00:00:00', state.text)
+
+    def test_should_decrement_month(self):
+        dt = datetime.datetime(2016, 6, 27, 19, 38, 43)
+        state = DatetimeState(dt)
+        state.move_right()
+        state.decrement()
+        self.assertEqual('2016-05-27 19:38:43', state.text)
+
+    def test_should_increment_day(self):
+        dt = datetime.datetime(2016, 6, 27, 19, 54, 14)
+        state = DatetimeState(dt)
+        state.move_right()
+        state.move_right()
+        state.increment()
+        self.assertEqual('2016-06-28 19:54:14', state.text)
+
+    def test_should_decrement_day(self):
+        dt = datetime.datetime(2016, 6, 27, 19, 56, 14)
+        state = DatetimeState(dt)
+        state.move_right()
+        state.move_right()
+        state.decrement()
+        self.assertEqual('2016-06-26 19:56:14', state.text)
+
+    def test_should_increment_hour(self):
+        dt = datetime.datetime(2016, 6, 27, 19, 57, 35)
+        state = DatetimeState(dt)
+        for i in range(3):
+            state.move_right()
+        state.increment()
+        self.assertEqual('2016-06-27 20:57:35', state.text)
+
+    def test_should_increment_minute(self):
+        dt = datetime.datetime(2016, 6, 27, 20, 1, 45)
+        state = DatetimeState(dt)
+        for i in range(4):
+            state.move_right()
+        state.increment()
+        self.assertEqual('2016-06-27 20:02:45', state.text)
+
+    def test_should_increment_second(self):
+        dt = datetime.datetime(2016, 6, 27, 20, 2, 36)
+        state = DatetimeState(dt)
+        for i in range(5):
+            state.move_right()
+        state.increment()
+        self.assertEqual('2016-06-27 20:02:37', state.text)
