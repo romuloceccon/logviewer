@@ -108,15 +108,14 @@ class MainWindow(LogWindow):
         dt = lines[0].datetime if len(lines) > 0 else datetime.datetime.utcnow()
         window = DatetimeWindow(self.window_manager, 'Date', dt)
         if window.show():
-            self._buf.restart(self._driver_factory.create_driver(
-                self.filter_state, window.value))
+            self._restart_driver(window.value)
 
     def _change_level(self):
         window = LevelWindow(self.window_manager)
         window.position = self.filter_state.level
         if window.show():
             self.filter_state.level = window.position
-            self._buf.restart(self._driver_factory.create_driver(self.filter_state))
+            self._restart_driver()
 
     def _change_facility(self):
         window = FacilityWindow(self.window_manager)
@@ -125,21 +124,34 @@ class MainWindow(LogWindow):
         if window.show():
             self.filter_state.facility = None if window.position == 0 else \
                 window.position - 1
-            self._buf.restart(self._driver_factory.create_driver(self.filter_state))
+            self._restart_driver()
 
     def _change_host(self):
         window = TextWindow(self.window_manager, 'Host', 70)
         window.text = self.filter_state.host or ''
         if window.show():
             self.filter_state.host = window.text
-            self._buf.restart(self._driver_factory.create_driver(self.filter_state))
+            self._restart_driver()
 
     def _change_program(self):
         window = TextWindow(self.window_manager, 'Program', 70)
         window.text = self.filter_state.program or ''
         if window.show():
             self.filter_state.program = window.text
-            self._buf.restart(self._driver_factory.create_driver(self.filter_state))
+            self._restart_driver()
+
+    def _restart_driver(self, start_date=None):
+        options = {}
+
+        if start_date:
+            options['start_date'] = start_date
+        else:
+            lines = self._buf.get_current_lines()
+            if len(lines) > 0:
+                options['start_date'] = lines[0].datetime
+
+        self._buf.restart(self._driver_factory.create_driver(
+            self.filter_state, **options))
 
     def start(self):
         self._buf.start(self._driver_factory.create_driver(self.filter_state))
