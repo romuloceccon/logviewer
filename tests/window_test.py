@@ -431,6 +431,14 @@ class DatetimeWindowTest(WindowTest):
         self.assertEqual([((0, 8, '|Date|'),), ((2, 2, '2015-06-27 22:07:41'),)],
             self._child_window.addstr.call_args_list)
 
+    def test_should_return_current_value(self):
+        self._parent_window.getmaxyx.return_value = (9, 30)
+        dt = datetime.datetime(2016, 6, 28, 0, 20, 46)
+
+        win = DatetimeWindow(self._manager, 'Date', dt)
+        win.handle_key(curses.KEY_DOWN)
+        self.assertEqual(dt.replace(year=2015), win.value)
+
 class FilterTest(unittest.TestCase):
     def test_should_create_filter_state(self):
         filter = FilterState()

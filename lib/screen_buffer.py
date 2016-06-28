@@ -6,10 +6,16 @@ class ScreenBuffer(object):
     TIMEOUT = 3
 
     class Driver(object):
+        def has_start_date(self):
+            pass
+
         def start_connection(self):
             pass
 
         def stop_connection(self):
+            pass
+
+        def prepare_datetime_query(self):
             pass
 
         def prepare_query(self, start, desc, count):
@@ -107,6 +113,7 @@ class ScreenBuffer(object):
             if not low_buffer_threshold is None else page_size
         self._timeout = timeout
 
+        self._auto_scroll = True
         self._lines = None
         self._position = None
         self._bottom_seen = None
@@ -218,7 +225,7 @@ class ScreenBuffer(object):
             for line in self._build_lines(rec):
                 self._lines.append(line)
 
-            if old_len - self._position <= self._page_size:
+            if old_len - self._position <= self._page_size and self._auto_scroll:
                 notify = True
                 self._set_position(len(self._lines) - self._page_size)
             elif old_len < self._page_size:
@@ -237,25 +244,36 @@ class ScreenBuffer(object):
     def remove_observer(self, observer):
         self._observers.remove(observer)
 
-    def get_buffer_instructions(self):
+    def get_buffer_instructions(self, driver):
         result = []
 
         with self._lock:
             if self._lines:
-
                 if self._position + self._page_size >= len(self._lines) - self._low_buffer_threshold:
                     result.append((self._lines[-1].id, False, self._buffer_size))
                 if self._position <= self._low_buffer_threshold:
                     result.append((self._lines[0].id, True, self._buffer_size))
             else:
-                result.append((None, True, self._buffer_size + self._page_size))
+                rec, count = None, self._buffer_size + self._page_size
+                if driver.has_start_date():
+                    query = driver.prepare_datetime_query()
+                    rec = tmp = driver.fetch_record(query)
+                    while tmp:
+                        tmp = driver.fetch_record(query)
+
+                if rec:
+                    self._auto_scroll = False
+                    result.append((rec['id'] - 1, False, count))
+                    result.append((rec['id'], True, self._buffer_size))
+                else:
+                    result.append((None, True, count))
 
         return tuple(result)
 
     def get_records(self, driver):
         result = None
 
-        for start, desc, count in self.get_buffer_instructions():
+        for start, desc, count in self.get_buffer_instructions(driver):
             if desc and self._bottom_seen:
                 continue
 
@@ -274,6 +292,7 @@ class ScreenBuffer(object):
             if count > 0 and not desc or start is None:
                 result = self._timeout
 
+        self._auto_scroll = True
         return result
 
     def clear(self):

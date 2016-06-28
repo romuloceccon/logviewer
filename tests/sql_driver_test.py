@@ -1,5 +1,6 @@
 import unittest
 import random
+import datetime
 
 from sql_driver import SqlDriver
 
@@ -136,3 +137,12 @@ class SqlDriverTest(unittest.TestCase):
             "program, pid, message FROM logs WHERE id < 100 AND "\
             "(host = 'h1' OR host = 'h2') ORDER BY id DESC LIMIT 10",
             drv.query)
+
+    def test_should_find_date(self):
+        drv = SqlDriverTest.FakeSqlDriver(
+            start_date=datetime.datetime(2016, 6, 27, 22, 27, 50))
+        drv.prepare_datetime_query()
+
+        self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
+            "program, pid, message FROM logs WHERE datetime >= "\
+            "'2016-06-27 22:27:50' ORDER BY id ASC LIMIT 1", drv.query)

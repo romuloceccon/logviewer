@@ -1,6 +1,7 @@
 import unittest
 import threading
 import random
+import datetime
 from unittest.mock import Mock, MagicMock, patch
 
 from screen_buffer import ScreenBuffer
@@ -19,7 +20,8 @@ class ScreenBufferTest(unittest.TestCase):
             self._sem.release()
 
         def pop(self):
-            self._sem.acquire()
+            if not self._sem.acquire(timeout=2.0):
+                raise Exception('Timed-out waiting on semaphore')
             with self._lock:
                 result = self._list.pop()
             with self._cv:
@@ -61,19 +63,28 @@ class ScreenBufferTest(unittest.TestCase):
             self._count += 1
 
     class FakeDriver(ScreenBuffer.Driver):
-        def __init__(self, queue):
+        def __init__(self, queue, start_date=None):
             self.started = threading.Event()
             self.stopped = False
             self.queue = queue
+            self.start_date = start_date
             self.magic = random.randint(1, 1000)
             self.error = False
+            self.dt = None
             self.instruction = None
+
+        def has_start_date(self):
+            return not (not self.start_date)
 
         def start_connection(self):
             self.started.set()
 
         def stop_connection(self):
             self.stopped = True
+
+        def prepare_datetime_query(self):
+            self.dt = self.start_date
+            return self.magic
 
         def prepare_query(self, start, desc, count):
             self.instruction = (start, desc, count)
@@ -89,6 +100,10 @@ class ScreenBufferTest(unittest.TestCase):
                 'host': 'test', 'program': 'test', 'facility_num': 1,
                 'level_num': 6, 'message': str(i) }
             return result
+
+    class NullDriver(object):
+        def has_start_date(self):
+            return False
 
     def _get_line(self, i, message=None):
         return { 'id': i, 'datetime': '2016-05-22 23:00:00', 'host': 'test',
@@ -224,6 +239,42 @@ class ScreenBufferTest(unittest.TestCase):
         self.assertEqual('2', cur[0].message)
 
         self.assertEqual(0, self.observer.count)
+
+    def test_should_not_auto_scroll_if_starting_driver_with_date(self):
+        dt = datetime.datetime.utcnow()
+        buf = ScreenBuffer(page_size=2, buffer_size=5)
+
+        self.queue.push(13)
+        self.queue.push(None)
+        self.queue.push_forward_records(13, 7)
+        self.queue.push_forward_records(12, 5)
+        drv = ScreenBufferTest.FakeDriver(self.queue, dt)
+
+        buf.get_records(drv)
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('13', cur[0].message)
+        self.assertEqual('14', cur[1].message)
+
+    def test_should_auto_scroll_after_manual_scroll(self):
+        dt = datetime.datetime.utcnow()
+        buf = ScreenBuffer(page_size=2, buffer_size=5)
+
+        self.queue.push(13)
+        self.queue.push(None)
+        self.queue.push_forward_records(13, 7)
+        self.queue.push_forward_records(12, 5)
+        drv = ScreenBufferTest.FakeDriver(self.queue, dt)
+
+        buf.get_records(drv)
+        buf.go_to_next_page()
+        buf.go_to_next_page()
+        buf.go_to_next_line()
+        buf.append_record(self._get_line(20))
+        cur = buf.get_current_lines()
+        self.assertEqual(2, len(cur))
+        self.assertEqual('19', cur[0].message)
+        self.assertEqual('20', cur[1].message)
 
     def test_should_prepend_record_on_buffer_not_at_end_of_screen(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
@@ -380,7 +431,8 @@ class ScreenBufferTest(unittest.TestCase):
     def test_should_get_buffer_instructions_for_empty_buffer(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
 
-        self.assertEqual(((None, True, 7),), buf.get_buffer_instructions())
+        self.assertEqual(((None, True, 7),),
+            buf.get_buffer_instructions(ScreenBufferTest.NullDriver()))
 
     def test_should_get_buffer_instructions_for_forward_buffer(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
@@ -388,7 +440,8 @@ class ScreenBufferTest(unittest.TestCase):
         for i in range(10, 0, -1):
             buf.prepend_record(self._get_line(i))
 
-        self.assertEqual(((10, False, 5),), buf.get_buffer_instructions())
+        self.assertEqual(((10, False, 5),),
+            buf.get_buffer_instructions(ScreenBufferTest.NullDriver()))
 
     def test_should_not_get_buffer_instructions_for_forward_buffer_if_below_threshold(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
@@ -399,7 +452,8 @@ class ScreenBufferTest(unittest.TestCase):
         buf.go_to_previous_line()
         buf.go_to_previous_line()
 
-        self.assertEqual(tuple(), buf.get_buffer_instructions())
+        self.assertEqual(tuple(),
+            buf.get_buffer_instructions(ScreenBufferTest.NullDriver()))
 
     def test_should_get_buffer_instructions_for_backward_buffer(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
@@ -409,7 +463,8 @@ class ScreenBufferTest(unittest.TestCase):
         for i in range(0, 3):
             buf.go_to_previous_page()
 
-        self.assertEqual(((11, True, 5),), buf.get_buffer_instructions())
+        self.assertEqual(((11, True, 5),),
+            buf.get_buffer_instructions(ScreenBufferTest.NullDriver()))
 
     def test_should_not_get_buffer_instructions_for_backward_buffer_if_below_threshold(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
@@ -420,7 +475,8 @@ class ScreenBufferTest(unittest.TestCase):
         buf.go_to_previous_page()
         buf.go_to_previous_line()
 
-        self.assertEqual(tuple(), buf.get_buffer_instructions())
+        self.assertEqual(tuple(),
+            buf.get_buffer_instructions(ScreenBufferTest.NullDriver()))
 
     def test_should_get_buffer_instructions_if_both_buffers_are_below_threshold(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)
@@ -428,7 +484,28 @@ class ScreenBufferTest(unittest.TestCase):
         buf.append_record(self._get_line(11))
         buf.append_record(self._get_line(12))
 
-        self.assertEqual(((12, False, 5), (11, True, 5)), buf.get_buffer_instructions())
+        self.assertEqual(((12, False, 5), (11, True, 5)),
+            buf.get_buffer_instructions(ScreenBufferTest.NullDriver()))
+
+    def test_should_get_buffer_instructions_for_given_date(self):
+        dt = datetime.datetime.utcnow()
+        buf = ScreenBuffer(page_size=2, buffer_size=5)
+
+        self.queue.push(13)
+        self.queue.push(None)
+        drv = ScreenBufferTest.FakeDriver(self.queue, dt)
+
+        self.assertEqual(((12, False, 7), (13, True, 5)),
+            buf.get_buffer_instructions(drv))
+
+    def test_should_fallback_to_default_buffer_instructions_if_record_with_given_date_is_not_found(self):
+        dt = datetime.datetime.utcnow()
+        buf = ScreenBuffer(page_size=2, buffer_size=5)
+
+        self.queue.push(None)
+        drv = ScreenBufferTest.FakeDriver(self.queue, dt)
+
+        self.assertEqual(((None, True, 7),), buf.get_buffer_instructions(drv))
 
     def test_should_start_and_stop_driver(self):
         buf = ScreenBuffer(page_size=2, buffer_size=5)

@@ -106,7 +106,7 @@ class LogWindow(Window):
 
     def _get_filter_state_desc(self):
         return ' ' + '  '.join('{}: {}'.format(a, b) for (a, b) in \
-            self._filter_state.get_summary())
+            self._filter_state.get_summary()) + '  ' + 'Go to [d]ate'
 
     def refresh(self):
         self._pad.clear()
@@ -299,6 +299,10 @@ class DatetimeWindow(CenteredWindow):
         self._datetime_state = DatetimeState(dt)
         width = len(self._datetime_state.text)
         CenteredWindow.__init__(self, window_manager, title, 1, width, 1, width)
+
+    @property
+    def value(self):
+        return self._datetime_state.value
 
     def handle_key(self, k):
         if k == ord('\n'):

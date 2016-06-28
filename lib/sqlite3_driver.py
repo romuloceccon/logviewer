@@ -9,9 +9,10 @@ class Sqlite3Driver(sql_driver.SqlDriver):
         def __init__(self, filename):
             self._filename = filename
 
-        def create_driver(self, state):
+        def create_driver(self, state, start_date=None):
             return Sqlite3Driver(self._filename, level=state.level,
-                facility=state.facility, host=state.host, program=state.program)
+                facility=state.facility, host=state.host, program=state.program,
+                start_date=start_date)
 
     def __init__(self, filename, **kwargs):
         sql_driver.SqlDriver.__init__(self, **kwargs)

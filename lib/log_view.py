@@ -107,7 +107,9 @@ class MainWindow(LogWindow):
         lines = self._buf.get_current_lines()
         dt = lines[0].datetime if len(lines) > 0 else datetime.datetime.utcnow()
         window = DatetimeWindow(self.window_manager, 'Date', dt)
-        window.show()
+        if window.show():
+            self._buf.restart(self._driver_factory.create_driver(
+                self.filter_state, window.value))
 
     def _change_level(self):
         window = LevelWindow(self.window_manager)

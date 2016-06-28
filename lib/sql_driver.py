@@ -1,14 +1,25 @@
 import re
-import sys
 
 from screen_buffer import ScreenBuffer
 
 class SqlDriver(ScreenBuffer.Driver):
-    def __init__(self, level=None, facility=None, host=None, program=None):
+    def __init__(self, level=None, facility=None, host=None, program=None,
+            start_date=None):
         self._level = level
         self._facility = facility
         self._host = host
         self._program = program
+        self._start_date = start_date
+
+    def has_start_date(self):
+        return not (not self._start_date)
+
+    def prepare_datetime_query(self):
+        dt_str = self._start_date.strftime('%Y-%m-%d %H:%M:%S')
+
+        return self.select("SELECT id, facility_num, level_num, host, "\
+            "datetime, program, pid, message FROM logs WHERE datetime >= "\
+            "'{}' ORDER BY id ASC LIMIT 1".format(dt_str))
 
     def prepare_query(self, start, desc, count):
         parts = [

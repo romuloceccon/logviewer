@@ -10,9 +10,10 @@ class MySQLDriver(sql_driver.SqlDriver):
             if 'port' in self._mysql_conf:
                 self._mysql_conf['port'] = int(self._mysql_conf['port'])
 
-        def create_driver(self, state):
+        def create_driver(self, state, start_date=None):
             return MySQLDriver(self._mysql_conf, level=state.level,
-                facility=state.facility, host=state.host, program=state.program)
+                facility=state.facility, host=state.host, program=state.program,
+                start_date=start_date)
 
     def __init__(self, mysql_conf, **kwargs):
         sql_driver.SqlDriver.__init__(self, **kwargs)
