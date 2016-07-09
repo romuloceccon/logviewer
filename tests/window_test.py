@@ -114,8 +114,8 @@ class LogWindowTest(WindowTest):
         win = LogWindow(self._manager, LogWindowTest.FakeBuffer([]), 100)
 
         win.refresh()
-        self._parent_window.addnstr.assert_called_once_with(9, 0,
-            ' [l]evel: debug  [f]acility: ALL  [p]rogram: *  [h]ost: *', 29)
+        self._parent_window.addnstr.assert_called_once_with(9, 0, ' [l]evel: '\
+            'debug  [f]acility: ALL  [p]rogram: *  [h]ost: *  Go to [d]ate', 29)
         self._parent_window.chgat.assert_called_once_with(9, 0, 30, 0x300)
         self._parent_window.noutrefresh.assert_called_once_with()
 
