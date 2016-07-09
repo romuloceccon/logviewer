@@ -8,6 +8,7 @@ import struct
 from screen_buffer import ScreenBuffer
 from text_input import TextInput
 from utf8_parser import Utf8Parser
+from window import BaseManager
 from window import Window, LogWindow, SelectWindow, TextWindow, DatetimeWindow
 from window import FilterState
 
@@ -39,57 +40,17 @@ class EventPoll(object):
 
         return window.getch()
 
-class Manager(object):
-    def __init__(self, curses_window):
-        curses.start_color()
-
-        curses.curs_set(0)
-        curses_window.nodelay(1)
-
-        curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
-        curses.init_pair(2, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
-        curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)
-        curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_BLACK)
-        curses.init_pair(5, curses.COLOR_CYAN, curses.COLOR_BLACK)
-        curses.init_pair(6, curses.COLOR_BLUE, curses.COLOR_BLACK)
-
-        self._curses_window = curses_window
+class Manager(BaseManager):
+    def __init__(self, curses, curses_window):
+        BaseManager.__init__(self, curses, curses_window)
         self._poll = EventPoll()
-        h, w = curses_window.getmaxyx()
-
-        self._stack = list()
-
-    def _loop(self):
-        self._curses_window.clear()
-        self._curses_window.noutrefresh()
-
-        for window in self._stack:
-            window.refresh()
-
-        curses.doupdate()
-
-        k = self._poll.wait_char(self.curses_window)
-        if k == curses.KEY_RESIZE:
-            h, w = self._curses_window.getmaxyx()
-            for window in self._stack:
-                window.resize(h, w)
-        else:
-            self._stack[-1].handle_key(k)
 
     @property
     def poll(self):
         return self._poll
 
-    @property
-    def curses(self):
-        return curses
-
-    @property
-    def curses_window(self):
-        return self._curses_window
-
-    def run(self, main_window):
-        main_window.show()
+    def wait_char(self, window):
+        return self._poll.wait_char(window)
 
 class MainWindow(LogWindow):
     def __init__(self, window_manager, configuration):

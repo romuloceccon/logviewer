@@ -20,7 +20,7 @@ def get_drivers():
     return result
 
 def run_app(window):
-    manager = Manager(window)
+    manager = Manager(curses, window)
     conf_file = sys.argv[1] if len(sys.argv) >= 2 else '/etc/logviewer.conf'
     main_window = MainWindow(manager, Configuration(conf_file, get_drivers()))
     manager.run(main_window)

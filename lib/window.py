@@ -7,6 +7,60 @@ from screen_cursor import ScreenCursor
 from text_input import TextInput
 from utf8_parser import Utf8Parser
 
+class BaseManager(object):
+    def __init__(self, curses, curses_window):
+        curses.start_color()
+
+        curses.curs_set(0)
+        curses_window.nodelay(1)
+
+        curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
+        curses.init_pair(2, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
+        curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+        curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_BLACK)
+        curses.init_pair(5, curses.COLOR_CYAN, curses.COLOR_BLACK)
+        curses.init_pair(6, curses.COLOR_BLUE, curses.COLOR_BLACK)
+
+        self._curses = curses
+        self._curses_window = curses_window
+
+        self._stack = list()
+
+    def loop(self):
+        self._curses_window.clear()
+        self._curses_window.noutrefresh()
+
+        for window in self._stack:
+            window.refresh()
+
+        self._curses.doupdate()
+
+        k = self.wait_char(self.curses_window)
+        if k == curses.KEY_RESIZE:
+            h, w = self._curses_window.getmaxyx()
+            for window in self._stack:
+                window.resize(h, w)
+        elif not k is None and self._stack:
+            self._stack[-1].handle_key(k)
+
+    @property
+    def curses(self):
+        return self._curses
+
+    @property
+    def curses_window(self):
+        return self._curses_window
+
+    @property
+    def stack(self):
+        return self._stack
+
+    def run(self, window):
+        window.show()
+
+    def wait_char(self, window):
+        raise RuntimeError('Not implemented')
+
 class Window(object):
     def __init__(self, window_manager):
         self._window_manager = window_manager
@@ -26,15 +80,15 @@ class Window(object):
         return self._window_manager
 
     def show(self):
-        self._window_manager._stack.append(self)
+        self._window_manager.stack.append(self)
         self.start()
         try:
             while not self._closed:
-                self._window_manager._loop()
+                self._window_manager.loop()
             return self._result
         finally:
             self.finish()
-            self._window_manager._stack.pop()
+            self._window_manager.stack.pop()
 
     def close(self, result):
         self._result = result
