@@ -36,16 +36,20 @@ class BaseManager(object):
         self._curses.doupdate()
 
         self.wait()
-        k = self._get_char()
-        if k == curses.KEY_RESIZE:
-            h, w = self._curses_window.getmaxyx()
-            for window in self._stack:
-                window.resize(h, w)
-        elif k != -1 and self._stack:
-            self._stack[-1].handle_key(k)
+        for k in self._get_chars():
+            if k == curses.KEY_RESIZE:
+                h, w = self._curses_window.getmaxyx()
+                for window in self._stack:
+                    window.resize(h, w)
+            elif self._stack:
+                self._stack[-1].handle_key(k)
 
-    def _get_char(self):
-        return self._curses_window.getch()
+    def _get_chars(self):
+        while True:
+            key = self._curses_window.getch()
+            if key == -1:
+                return
+            yield key
 
     @property
     def curses(self):
