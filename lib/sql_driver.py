@@ -19,7 +19,7 @@ class SqlDriver(ScreenBuffer.Driver):
 
         return self.select("SELECT id, facility_num, level_num, host, "\
             "datetime, program, pid, message FROM logs WHERE datetime >= "\
-            "'{}' ORDER BY id ASC LIMIT 1".format(dt_str))
+            "'{}' ORDER BY datetime ASC LIMIT 1".format(dt_str))
 
     def prepare_query(self, start, desc, count):
         parts = [

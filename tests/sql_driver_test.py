@@ -145,4 +145,4 @@ class SqlDriverTest(unittest.TestCase):
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
             "program, pid, message FROM logs WHERE datetime >= "\
-            "'2016-06-27 22:27:50' ORDER BY id ASC LIMIT 1", drv.query)
+            "'2016-06-27 22:27:50' ORDER BY datetime ASC LIMIT 1", drv.query)
