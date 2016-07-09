@@ -35,13 +35,17 @@ class BaseManager(object):
 
         self._curses.doupdate()
 
-        k = self.wait_char(self.curses_window)
+        self.wait()
+        k = self._get_char()
         if k == curses.KEY_RESIZE:
             h, w = self._curses_window.getmaxyx()
             for window in self._stack:
                 window.resize(h, w)
-        elif not k is None and self._stack:
+        elif k != -1 and self._stack:
             self._stack[-1].handle_key(k)
+
+    def _get_char(self):
+        return self._curses_window.getch()
 
     @property
     def curses(self):
@@ -58,7 +62,7 @@ class BaseManager(object):
     def run(self, window):
         window.show()
 
-    def wait_char(self, window):
+    def wait(self):
         raise RuntimeError('Not implemented')
 
 class Window(object):

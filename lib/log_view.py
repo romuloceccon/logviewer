@@ -27,7 +27,7 @@ class EventPoll(object):
     def observer(self):
         return self._notify
 
-    def wait_char(self, window):
+    def wait(self):
         while True:
             try:
                 result_poll = self._poll.poll()
@@ -38,8 +38,6 @@ class EventPoll(object):
             except InterruptedError:
                 break
 
-        return window.getch()
-
 class Manager(BaseManager):
     def __init__(self, curses, curses_window):
         BaseManager.__init__(self, curses, curses_window)
@@ -49,8 +47,8 @@ class Manager(BaseManager):
     def poll(self):
         return self._poll
 
-    def wait_char(self, window):
-        return self._poll.wait_char(window)
+    def wait(self):
+        return self._poll.wait()
 
 class MainWindow(LogWindow):
     def __init__(self, window_manager, configuration):
