@@ -32,7 +32,7 @@ class BaseManagerTest(unittest.TestCase):
     def test_should_create_manager_without_window(self):
         self._manager.loop()
 
-        self._curses_window.clear.assert_called_once_with()
+        self._curses_window.erase.assert_called_once_with()
         self._curses_window.noutrefresh.assert_called_once_with()
         self._curses.doupdate.assert_called_once_with()
 
@@ -198,7 +198,7 @@ class LogWindowTest(WindowTest):
         win = LogWindow(self._manager, buf, 100)
 
         win.refresh()
-        self._pad.clear.assert_called_once_with()
+        self._pad.erase.assert_called_once_with()
         self._pad.noutrefresh.assert_called_once_with(0, 0, 0, 0, 8, 29)
 
         self.assertEqual([
@@ -301,7 +301,7 @@ class CenteredWindowTest(WindowTest):
         win = CenteredWindow(self._manager, 'Test', 3, 16, 1, 6)
 
         win.refresh()
-        self._child_window.clear.assert_called_with()
+        self._child_window.erase.assert_called_with()
         self._child_window.border.assert_called_with()
         self._child_window.addstr.assert_called_with(0, 7, '|Test|')
         self._child_window.noutrefresh.assert_called_with()
@@ -337,7 +337,7 @@ class SelectWindowTest(WindowTest):
         win = SelectWindow(self._manager, 'Letter', ['a', 'b', 'c'])
 
         win.refresh()
-        self._child_window.clear.assert_called_with()
+        self._child_window.erase.assert_called_with()
         self._child_window.border.assert_called_with()
         self._child_window.addstr.assert_called_with(0, 6, '|Letter|')
         self._child_window.noutrefresh.assert_called_with()

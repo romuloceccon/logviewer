@@ -27,7 +27,7 @@ class BaseManager(object):
         self._stack = list()
 
     def loop(self):
-        self._curses_window.clear()
+        self._curses_window.erase()
         self._curses_window.noutrefresh()
 
         for window in self._stack:
@@ -171,7 +171,7 @@ class LogWindow(Window):
             self._filter_state.get_summary()) + '  ' + 'Go to [d]ate'
 
     def refresh(self):
-        self._pad.clear()
+        self._pad.erase()
 
         for i, line in enumerate(self._buf.get_current_lines()):
             if not line.is_continuation or i == 0:
@@ -225,7 +225,7 @@ class CenteredWindow(Window):
         if not self._curses_window:
             return
 
-        self._curses_window.clear()
+        self._curses_window.erase()
         self._curses_window.border()
         t = '|{}|'.format(self._title)
         self._curses_window.addstr(0, (self._cur_width - len(t)) // 2, t)
