@@ -1,7 +1,10 @@
-.PHONY: test run
+.PHONY: test install run
 
 test :
 	python -m unittest discover -s tests -p '*_test.py'
 
+install :
+	pip install -e .
+
 run :
-	PYTHONPATH=. python bin/log-viewer.py conf.conf
+	logviewer conf.conf
