@@ -1,75 +1,13 @@
 import curses
 import datetime
-import calendar
 
 from screen_buffer import ScreenBuffer
 from screen_cursor import ScreenCursor
 from text_input import TextInput
-from utf8_parser import Utf8Parser
+from utf8_parser import UTF8Parser
+import window_states
 
-class BaseManager(object):
-    def __init__(self, curses, curses_window):
-        curses.start_color()
-
-        curses.curs_set(0)
-        curses_window.nodelay(1)
-
-        curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
-        curses.init_pair(2, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
-        curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_BLACK)
-        curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_BLACK)
-        curses.init_pair(5, curses.COLOR_CYAN, curses.COLOR_BLACK)
-        curses.init_pair(6, curses.COLOR_BLUE, curses.COLOR_BLACK)
-
-        self._curses = curses
-        self._curses_window = curses_window
-
-        self._stack = list()
-
-    def loop(self):
-        self._curses_window.erase()
-        self._curses_window.noutrefresh()
-
-        for window in self._stack:
-            window.refresh()
-
-        self._curses.doupdate()
-
-        self.wait()
-        for k in self._get_chars():
-            if k == curses.KEY_RESIZE:
-                h, w = self._curses_window.getmaxyx()
-                for window in self._stack:
-                    window.resize(h, w)
-            elif self._stack:
-                self._stack[-1].handle_key(k)
-
-    def _get_chars(self):
-        while True:
-            key = self._curses_window.getch()
-            if key == -1:
-                return
-            yield key
-
-    @property
-    def curses(self):
-        return self._curses
-
-    @property
-    def curses_window(self):
-        return self._curses_window
-
-    @property
-    def stack(self):
-        return self._stack
-
-    def run(self, window):
-        window.show()
-
-    def wait(self):
-        raise RuntimeError('Not implemented')
-
-class Window(object):
+class Base(object):
     def __init__(self, window_manager):
         self._window_manager = window_manager
         self._result = None
@@ -117,12 +55,12 @@ class Window(object):
     def resize(self, height, width):
         raise RuntimeError('Not implemented')
 
-class LogWindow(Window):
+class Log(Base):
     STEP = 4
     WIDTHS = [14, 8, 16, 4, 3]
 
     def __init__(self, window_manager, buffer, max_width):
-        Window.__init__(self, window_manager)
+        Base.__init__(self, window_manager)
 
         self._buf = buffer
 
@@ -139,7 +77,7 @@ class LogWindow(Window):
         self._pad_x = 0
         self._pad_x_max = self._max_width - w
 
-        self._filter_state = FilterState()
+        self._filter_state = window_states.Filter()
 
         self._level_attrs = {
             'emerg':   self._curses.color_pair(1) | self._curses.A_REVERSE,
@@ -156,12 +94,12 @@ class LogWindow(Window):
         return self._filter_state
 
     def _pos(self, i):
-        return sum(LogWindow.WIDTHS[:i]) + i
+        return sum(Log.WIDTHS[:i]) + i
 
     def _width(self, i):
-        if i >= len(LogWindow.WIDTHS):
-            return self._max_width - sum(LogWindow.WIDTHS) - len(LogWindow.WIDTHS)
-        return LogWindow.WIDTHS[i]
+        if i >= len(Log.WIDTHS):
+            return self._max_width - sum(Log.WIDTHS) - len(Log.WIDTHS)
+        return Log.WIDTHS[i]
 
     def _update_line(self, y, p, val, attr=0):
         self._pad.addnstr(y, self._pos(p), val, self._width(p), attr)
@@ -197,15 +135,15 @@ class LogWindow(Window):
         self._pad_x = min(self._pad_x, self._pad_x_max)
 
     def scroll_left(self):
-        self._pad_x = max(self._pad_x - LogWindow.STEP, 0)
+        self._pad_x = max(self._pad_x - Log.STEP, 0)
 
     def scroll_right(self):
-        self._pad_x = min(self._pad_x + LogWindow.STEP, self._pad_x_max)
+        self._pad_x = min(self._pad_x + Log.STEP, self._pad_x_max)
 
-class CenteredWindow(Window):
+class Centered(Base):
     def __init__(self, window_manager, title, height, width, min_height,
             min_width):
-        Window.__init__(self, window_manager)
+        Base.__init__(self, window_manager)
 
         self._curses = window_manager.curses
         self._parent = window_manager.curses_window
@@ -245,7 +183,7 @@ class CenteredWindow(Window):
         self._cur_height, self._cur_width = new_h, new_w
         self._curses_window.bkgd(self._curses.A_REVERSE)
 
-class SelectWindow(CenteredWindow):
+class Select(Centered):
     def __init__(self, window_manager, title, items):
         if len(items) == 0:
             raise ValueError('Cannot create window with empty list')
@@ -254,7 +192,7 @@ class SelectWindow(CenteredWindow):
         self._count = len(items)
         self._cursor = ScreenCursor(self._count)
 
-        CenteredWindow.__init__(self, window_manager, title,
+        Centered.__init__(self, window_manager, title,
             self._count, 16, 1, 16)
 
         self._pad = self._curses.newpad(self._count, 16)
@@ -281,7 +219,7 @@ class SelectWindow(CenteredWindow):
             self.position = max(0, self.position - 1)
 
     def refresh(self):
-        CenteredWindow.refresh(self)
+        Centered.refresh(self)
 
         if not self._curses_window:
             return
@@ -294,18 +232,18 @@ class SelectWindow(CenteredWindow):
             self._y + self._cur_height - (b + 1), self._x + self._cur_width - (b + 1))
 
     def resize(self, h, w):
-        CenteredWindow.resize(self, h, w)
+        Centered.resize(self, h, w)
 
         if self._curses_window:
             self._cursor.visible_count = self._cur_height - self._padding
 
-class TextWindow(CenteredWindow):
+class Text(Centered):
     def __init__(self, window_manager, title, max_len):
         self._max_len = max_len
         self._text_input = TextInput(max_len=max_len)
-        self._utf8_parser = Utf8Parser(self._text_input.put)
+        self._utf8_parser = UTF8Parser(self._text_input.put)
 
-        CenteredWindow.__init__(self, window_manager, title, 1,
+        Centered.__init__(self, window_manager, title, 1,
             self._text_input.width, 1, 2)
 
     def _update_text_width(self):
@@ -319,7 +257,7 @@ class TextWindow(CenteredWindow):
     @text.setter
     def text(self, val):
         self._text_input = TextInput(max_len=self._max_len, text=val)
-        self._utf8_parser = Utf8Parser(self._text_input.put)
+        self._utf8_parser = UTF8Parser(self._text_input.put)
         self._update_text_width()
 
     def handle_key(self, k):
@@ -334,7 +272,7 @@ class TextWindow(CenteredWindow):
             self._utf8_parser.put_key(k)
 
     def refresh(self):
-        CenteredWindow.refresh(self)
+        Centered.refresh(self)
 
         if not self._curses_window:
             return
@@ -347,7 +285,7 @@ class TextWindow(CenteredWindow):
         self._curses_window.noutrefresh()
 
     def resize(self, h, w):
-        CenteredWindow.resize(self, h, w)
+        Centered.resize(self, h, w)
         self._update_text_width()
 
     def start(self):
@@ -356,11 +294,11 @@ class TextWindow(CenteredWindow):
     def finish(self):
         self._curses.curs_set(0)
 
-class DatetimeWindow(CenteredWindow):
+class Datetime(Centered):
     def __init__(self, window_manager, title, dt):
-        self._datetime_state = DatetimeState(dt)
+        self._datetime_state = window_states.Datetime(dt)
         width = len(self._datetime_state.text)
-        CenteredWindow.__init__(self, window_manager, title, 1, width, 1, width)
+        Centered.__init__(self, window_manager, title, 1, width, 1, width)
 
     @property
     def value(self):
@@ -382,7 +320,7 @@ class DatetimeWindow(CenteredWindow):
             self._datetime_state.decrement()
 
     def refresh(self):
-        CenteredWindow.refresh(self)
+        Centered.refresh(self)
 
         if not self._curses_window:
             return
@@ -392,148 +330,3 @@ class DatetimeWindow(CenteredWindow):
         offset, count = self._datetime_state.position
         self._curses_window.chgat(2, 2 + offset, count, 0)
         self._curses_window.noutrefresh()
-
-class FilterState(object):
-    def __init__(self):
-        self._level = None
-        self._max_level = len(ScreenBuffer.Line.LEVELS) - 1
-        self._facility = None
-        self._host = None
-        self._program = None
-
-    # Facility: None means all facilities
-    @property
-    def facility(self):
-        return self._facility
-
-    @facility.setter
-    def facility(self, val):
-        self._facility = val
-
-    @property
-    def host(self):
-        return self._host
-
-    @host.setter
-    def host(self, val):
-        if val:
-            self._host = val
-        else:
-            self._host = None
-
-    # Level: None means maximum messages (i.e., level_num=7)
-    @property
-    def level(self):
-        if self._level is None:
-            return self._max_level
-        return self._level
-
-    @level.setter
-    def level(self, val):
-        if val == self._max_level:
-            self._level = None
-        else:
-            self._level = val
-
-    @property
-    def program(self):
-        return self._program
-
-    @program.setter
-    def program(self, val):
-        if val:
-            self._program = val
-        else:
-            self._program = None
-
-    def get_summary(self):
-        if self.facility is None:
-            facility = ('[f]acility', 'ALL')
-        else:
-            facility = ('[f]acility', ScreenBuffer.Line.FACILITIES[self.facility])
-        level = ('[l]evel', ScreenBuffer.Line.LEVELS[self.level])
-        program = ('[p]rogram', self.program or '*')
-        host = ('[h]ost', self.host or '*')
-        return (level, facility, program, host)
-
-class DatetimeState(object):
-    class YearField(object):
-        def _change_year(self, dt, year):
-            if dt.month == 2 and dt.day == 29 and not calendar.isleap(year):
-                return dt.replace(year=year, month=2, day=28)
-            return dt.replace(year=year)
-
-        def increment(self, dt):
-            return self._change_year(dt, dt.year + 1)
-
-        def decrement(self, dt):
-            return self._change_year(dt, dt.year - 1)
-
-    class MonthField(object):
-        def _inc_month(self, dt, delta):
-            month_0 = dt.month - 1 + delta
-            year = dt.year + month_0 // 12
-            month = month_0 % 12 + 1
-            day = min(dt.day, calendar.monthrange(year, month)[1])
-            return dt.replace(year=year, month=month, day=day)
-
-        def increment(self, dt):
-            return self._inc_month(dt, 1)
-
-        def decrement(self, dt):
-            return self._inc_month(dt, -1)
-
-    class TimeField(object):
-        def __init__(self, key):
-            self._key = key
-
-        def increment(self, dt):
-            return dt + datetime.timedelta(**({ self._key: 1 }))
-
-        def decrement(self, dt):
-            return dt + datetime.timedelta(**({ self._key: -1 }))
-
-    FIELDS = (
-        ((0, 4), YearField()),
-        ((5, 2), MonthField()),
-        ((8, 2), TimeField('days')),
-        ((11, 2), TimeField('hours')),
-        ((14, 2), TimeField('minutes')),
-        ((17, 2), TimeField('seconds')))
-
-    def __init__(self, dt):
-        self._datetime = dt
-        self._current_field = 0
-
-    def _change_year(self, new_year):
-        dt = self._datetime
-        if dt.month == 2 and dt.day == 29 and not calendar.isleap(new_year):
-            dt = dt.replace(month=2, day=28)
-        self._datetime = dt.replace(year=new_year)
-
-    def decrement(self):
-        self._datetime = DatetimeState.FIELDS[self._current_field][1]. \
-            decrement(self._datetime)
-
-    def increment(self):
-        self._datetime = DatetimeState.FIELDS[self._current_field][1]. \
-            increment(self._datetime)
-
-    def move_left(self):
-        self._current_field = max(0, self._current_field - 1)
-
-    def move_right(self):
-        self._current_field = min(len(DatetimeState.FIELDS) - 1,
-            self._current_field + 1)
-
-    @property
-    def position(self):
-        return DatetimeState.FIELDS[self._current_field][0]
-
-    @property
-    def text(self):
-        return self._datetime.strftime('%Y-%m-%d %H:%M:%S')
-
-    @property
-    def value(self):
-        return self._datetime

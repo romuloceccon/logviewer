@@ -2,7 +2,7 @@ import re
 
 from screen_buffer import ScreenBuffer
 
-class SqlDriver(ScreenBuffer.Driver):
+class SQLDriver(ScreenBuffer.Driver):
     def __init__(self, level=None, facility=None, host=None, program=None,
             start_date=None):
         self._level = level

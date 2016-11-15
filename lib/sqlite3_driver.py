@@ -4,18 +4,18 @@ import datetime
 import sql_driver
 import screen_buffer
 
-class Sqlite3Driver(sql_driver.SqlDriver):
+class SQLite3Driver(sql_driver.SQLDriver):
     class Factory(object):
         def __init__(self, filename):
             self._filename = filename
 
         def create_driver(self, state, start_date=None):
-            return Sqlite3Driver(self._filename, level=state.level,
+            return SQLite3Driver(self._filename, level=state.level,
                 facility=state.facility, host=state.host, program=state.program,
                 start_date=start_date)
 
     def __init__(self, filename, **kwargs):
-        sql_driver.SqlDriver.__init__(self, **kwargs)
+        sql_driver.SQLDriver.__init__(self, **kwargs)
         self._filename = filename
 
     def start_connection(self):

@@ -2,12 +2,12 @@ import unittest
 import random
 import datetime
 
-from sql_driver import SqlDriver
+from sql_driver import SQLDriver
 
-class SqlDriverTest(unittest.TestCase):
-    class FakeSqlDriver(SqlDriver):
+class SQLDriverTest(unittest.TestCase):
+    class FakeSQLDriver(SQLDriver):
         def __init__(self, **kwargs):
-            SqlDriver.__init__(self, **kwargs)
+            SQLDriver.__init__(self, **kwargs)
             self.query = None
             self.magic = random.randint(1, 1000)
 
@@ -16,21 +16,21 @@ class SqlDriverTest(unittest.TestCase):
             return self.magic
 
     def test_should_execute_query_without_initial_id(self):
-        drv = SqlDriverTest.FakeSqlDriver()
+        drv = SQLDriverTest.FakeSQLDriver()
         self.assertEqual(drv.magic, drv.prepare_query(None, True, 10))
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
             "program, pid, message FROM logs ORDER BY id DESC LIMIT 10", drv.query)
 
     def test_should_execute_query_with_different_limit(self):
-        drv = SqlDriverTest.FakeSqlDriver()
+        drv = SQLDriverTest.FakeSQLDriver()
         self.assertEqual(drv.magic, drv.prepare_query(None, True, 1))
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
             "program, pid, message FROM logs ORDER BY id DESC LIMIT 1", drv.query)
 
     def test_should_execute_query_with_an_initial_id(self):
-        drv = SqlDriverTest.FakeSqlDriver()
+        drv = SQLDriverTest.FakeSQLDriver()
         self.assertEqual(drv.magic, drv.prepare_query(100, True, 10))
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
@@ -38,7 +38,7 @@ class SqlDriverTest(unittest.TestCase):
             drv.query)
 
     def test_should_execute_query_in_ascending_order(self):
-        drv = SqlDriverTest.FakeSqlDriver()
+        drv = SQLDriverTest.FakeSQLDriver()
         self.assertEqual(drv.magic, drv.prepare_query(100, False, 10))
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
@@ -46,7 +46,7 @@ class SqlDriverTest(unittest.TestCase):
             drv.query)
 
     def test_should_execute_query_with_level_filter(self):
-        drv = SqlDriverTest.FakeSqlDriver(level=3)
+        drv = SQLDriverTest.FakeSQLDriver(level=3)
         self.assertEqual(drv.magic, drv.prepare_query(100, True, 10))
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
@@ -54,7 +54,7 @@ class SqlDriverTest(unittest.TestCase):
             "ORDER BY id DESC LIMIT 10", drv.query)
 
     def test_should_execute_query_with_facility_filter(self):
-        drv = SqlDriverTest.FakeSqlDriver(facility=5)
+        drv = SQLDriverTest.FakeSQLDriver(facility=5)
         self.assertEqual(drv.magic, drv.prepare_query(100, True, 10))
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
@@ -62,7 +62,7 @@ class SqlDriverTest(unittest.TestCase):
             "ORDER BY id DESC LIMIT 10", drv.query)
 
     def test_should_filter_query_by_one_program(self):
-        drv = SqlDriverTest.FakeSqlDriver(program='sshd')
+        drv = SQLDriverTest.FakeSQLDriver(program='sshd')
         drv.prepare_query(100, True, 10)
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
@@ -70,7 +70,7 @@ class SqlDriverTest(unittest.TestCase):
             "(program = 'sshd') ORDER BY id DESC LIMIT 10", drv.query)
 
     def test_should_filter_query_by_multiple_programs(self):
-        drv = SqlDriverTest.FakeSqlDriver(program='sshd sudo')
+        drv = SQLDriverTest.FakeSQLDriver(program='sshd sudo')
         drv.prepare_query(100, True, 10)
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
@@ -79,7 +79,7 @@ class SqlDriverTest(unittest.TestCase):
             drv.query)
 
     def test_should_filter_by_program_stripping_extra_spaces(self):
-        drv = SqlDriverTest.FakeSqlDriver(program=' sshd  sudo ')
+        drv = SQLDriverTest.FakeSQLDriver(program=' sshd  sudo ')
         drv.prepare_query(100, True, 10)
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
@@ -88,7 +88,7 @@ class SqlDriverTest(unittest.TestCase):
             drv.query)
 
     def test_should_filter_program_with_wildcard(self):
-        drv = SqlDriverTest.FakeSqlDriver(program='s*')
+        drv = SQLDriverTest.FakeSQLDriver(program='s*')
         drv.prepare_query(100, True, 10)
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
@@ -96,7 +96,7 @@ class SqlDriverTest(unittest.TestCase):
             "(program LIKE 's%') ORDER BY id DESC LIMIT 10", drv.query)
 
     def test_should_filter_program_with_negative_condition(self):
-        drv = SqlDriverTest.FakeSqlDriver(program='!sshd')
+        drv = SQLDriverTest.FakeSQLDriver(program='!sshd')
         drv.prepare_query(100, True, 10)
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
@@ -104,7 +104,7 @@ class SqlDriverTest(unittest.TestCase):
             "program <> 'sshd' ORDER BY id DESC LIMIT 10", drv.query)
 
     def test_should_filter_program_with_negative_wildcard_condition(self):
-        drv = SqlDriverTest.FakeSqlDriver(program='!s*')
+        drv = SQLDriverTest.FakeSQLDriver(program='!s*')
         drv.prepare_query(100, True, 10)
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
@@ -112,7 +112,7 @@ class SqlDriverTest(unittest.TestCase):
             "program NOT LIKE 's%' ORDER BY id DESC LIMIT 10", drv.query)
 
     def test_should_filter_program_with_multiple_negative_conditions(self):
-        drv = SqlDriverTest.FakeSqlDriver(program='!sshd !sudo')
+        drv = SQLDriverTest.FakeSQLDriver(program='!sshd !sudo')
         drv.prepare_query(100, True, 10)
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
@@ -121,7 +121,7 @@ class SqlDriverTest(unittest.TestCase):
             drv.query)
 
     def test_should_filter_program_with_positive_and_negative_conditions(self):
-        drv = SqlDriverTest.FakeSqlDriver(program='!sshd s*')
+        drv = SQLDriverTest.FakeSQLDriver(program='!sshd s*')
         drv.prepare_query(100, True, 10)
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
@@ -130,7 +130,7 @@ class SqlDriverTest(unittest.TestCase):
             drv.query)
 
     def test_should_filter_host_with_multiple_conditions(self):
-        drv = SqlDriverTest.FakeSqlDriver(host='h1 h2')
+        drv = SQLDriverTest.FakeSQLDriver(host='h1 h2')
         drv.prepare_query(100, True, 10)
 
         self.assertEqual("SELECT id, facility_num, level_num, host, datetime, "\
@@ -139,7 +139,7 @@ class SqlDriverTest(unittest.TestCase):
             drv.query)
 
     def test_should_find_date(self):
-        drv = SqlDriverTest.FakeSqlDriver(
+        drv = SQLDriverTest.FakeSQLDriver(
             start_date=datetime.datetime(2016, 6, 27, 22, 27, 50))
         drv.prepare_datetime_query()
 

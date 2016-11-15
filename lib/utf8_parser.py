@@ -1,6 +1,6 @@
 import struct
 
-class Utf8Parser(object):
+class UTF8Parser(object):
     def __init__(self, receive):
         self._receive = receive
         self._buffer = []

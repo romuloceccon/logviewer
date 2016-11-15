@@ -2,14 +2,14 @@ import os
 import sys
 import curses
 
-from log_view import MainWindow, Manager
+from application import MainWindow, Manager
 from configuration import Configuration
 
 def get_drivers():
     result = {}
     try:
         import sqlite3_driver
-        result['sqlite3'] = sqlite3_driver.Sqlite3Driver.Factory
+        result['sqlite3'] = sqlite3_driver.SQLite3Driver.Factory
     except ImportError:
         pass
     try:

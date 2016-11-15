@@ -31,9 +31,9 @@ backend = sqlite3
 filename = test.db
 ''')
         config = Configuration(self._conf_file,
-            { 'sqlite3': sqlite3_driver.Sqlite3Driver.Factory })
+            { 'sqlite3': sqlite3_driver.SQLite3Driver.Factory })
         factory = config.get_factory()
-        self.assertIsInstance(factory, sqlite3_driver.Sqlite3Driver.Factory)
+        self.assertIsInstance(factory, sqlite3_driver.SQLite3Driver.Factory)
         self.assertEqual('test.db', factory._filename)
 
     def test_should_handle_default_config(self):

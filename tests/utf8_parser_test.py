@@ -1,12 +1,12 @@
 import unittest
 import curses
 
-from utf8_parser import Utf8Parser
+from utf8_parser import UTF8Parser
 
-class Utf8ParserTest(unittest.TestCase):
+class UTF8ParserTest(unittest.TestCase):
     def setUp(self):
         self.text = ''
-        self.parser = Utf8Parser(self._put_char)
+        self.parser = UTF8Parser(self._put_char)
 
     def _put_char(self, c):
         self.text += c

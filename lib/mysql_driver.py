@@ -3,7 +3,7 @@ import mysql.connector
 import sql_driver
 import screen_buffer
 
-class MySQLDriver(sql_driver.SqlDriver):
+class MySQLDriver(sql_driver.SQLDriver):
     class Factory(object):
         def __init__(self, **mysql_conf):
             self._mysql_conf = mysql_conf
@@ -16,7 +16,7 @@ class MySQLDriver(sql_driver.SqlDriver):
                 start_date=start_date)
 
     def __init__(self, mysql_conf, **kwargs):
-        sql_driver.SqlDriver.__init__(self, **kwargs)
+        sql_driver.SQLDriver.__init__(self, **kwargs)
         self._mysql_conf = mysql_conf
 
     def start_connection(self):

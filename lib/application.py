@@ -5,12 +5,11 @@ import curses
 import datetime
 import struct
 
+from base_manager import BaseManager
 from screen_buffer import ScreenBuffer
 from text_input import TextInput
-from utf8_parser import Utf8Parser
-from window import BaseManager
-from window import Window, LogWindow, SelectWindow, TextWindow, DatetimeWindow
-from window import FilterState
+from utf8_parser import UTF8Parser
+import windows
 
 class EventPoll(object):
     def __init__(self):
@@ -50,7 +49,7 @@ class Manager(BaseManager):
     def wait(self):
         return self._poll.wait()
 
-class MainWindow(LogWindow):
+class MainWindow(windows.Log):
     def __init__(self, window_manager, configuration):
         curses_window = window_manager.curses_window
         h, w = curses_window.getmaxyx()
@@ -58,14 +57,14 @@ class MainWindow(LogWindow):
         self._buf = ScreenBuffer(page_size=h - 1, timeout=configuration.timeout)
         self._buf.add_observer(window_manager.poll.observer)
 
-        LogWindow.__init__(self, window_manager, self._buf, 500)
+        windows.Log.__init__(self, window_manager, self._buf, 500)
 
         self._driver_factory = configuration.get_factory()
 
     def _change_date(self):
         lines = self._buf.get_current_lines()
         dt = lines[0].datetime if len(lines) > 0 else datetime.datetime.utcnow()
-        window = DatetimeWindow(self.window_manager, 'Date', dt)
+        window = windows.Datetime(self.window_manager, 'Date', dt)
         if window.show():
             self._restart_driver(window.value)
 
@@ -86,14 +85,14 @@ class MainWindow(LogWindow):
             self._restart_driver()
 
     def _change_host(self):
-        window = TextWindow(self.window_manager, 'Host', 70)
+        window = windows.Text(self.window_manager, 'Host', 70)
         window.text = self.filter_state.host or ''
         if window.show():
             self.filter_state.host = window.text
             self._restart_driver()
 
     def _change_program(self):
-        window = TextWindow(self.window_manager, 'Program', 70)
+        window = windows.Text(self.window_manager, 'Program', 70)
         window.text = self.filter_state.program or ''
         if window.show():
             self.filter_state.program = window.text
@@ -119,7 +118,7 @@ class MainWindow(LogWindow):
         self._buf.stop()
 
     def resize(self, h, w):
-        LogWindow.resize(self, h, w)
+        windows.Log.resize(self, h, w)
         self._buf.page_size = h - 1
 
     def handle_key(self, k):
@@ -148,11 +147,11 @@ class MainWindow(LogWindow):
         elif k == curses.KEY_LEFT:
             self.scroll_left()
 
-class LevelWindow(SelectWindow):
+class LevelWindow(windows.Select):
     def __init__(self, window_manager):
-        SelectWindow.__init__(self, window_manager, 'Level', ScreenBuffer.Line.LEVELS)
+        windows.Select.__init__(self, window_manager, 'Level', ScreenBuffer.Line.LEVELS)
 
-class FacilityWindow(SelectWindow):
+class FacilityWindow(windows.Select):
     def __init__(self, window_manager):
-        SelectWindow.__init__(self, window_manager, 'Facility',
+        windows.Select.__init__(self, window_manager, 'Facility',
             ['<ALL>'] + ScreenBuffer.Line.FACILITIES)
