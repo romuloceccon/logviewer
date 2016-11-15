@@ -1,6 +1,6 @@
 import unittest
 
-from screen_cursor import ScreenCursor
+from logviewer.screen_cursor import ScreenCursor
 
 class ScreenCursorTest(unittest.TestCase):
     def test_should_create_cursor(self):

@@ -1,7 +1,7 @@
 .PHONY: test run
 
 test :
-	PYTHONPATH=lib python -m unittest tests
+	python -m unittest discover -s tests -p '*_test.py'
 
 run :
-	PYTHONPATH=lib python bin/log-viewer.py conf.conf
+	PYTHONPATH=. python bin/log-viewer.py conf.conf

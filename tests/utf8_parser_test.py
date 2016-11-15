@@ -1,7 +1,7 @@
 import unittest
 import curses
 
-from utf8_parser import UTF8Parser
+from logviewer.utf8_parser import UTF8Parser
 
 class UTF8ParserTest(unittest.TestCase):
     def setUp(self):

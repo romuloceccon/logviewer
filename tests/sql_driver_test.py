@@ -2,7 +2,7 @@ import unittest
 import random
 import datetime
 
-from sql_driver import SQLDriver
+from logviewer.sql_driver import SQLDriver
 
 class SQLDriverTest(unittest.TestCase):
     class FakeSQLDriver(SQLDriver):

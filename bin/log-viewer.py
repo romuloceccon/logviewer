@@ -2,18 +2,18 @@ import os
 import sys
 import curses
 
-from application import MainWindow, Manager
-from configuration import Configuration
+from logviewer.application import MainWindow, Manager
+from logviewer.configuration import Configuration
 
 def get_drivers():
     result = {}
     try:
-        import sqlite3_driver
+        import logviewer.sqlite3_driver as sqlite3_driver
         result['sqlite3'] = sqlite3_driver.SQLite3Driver.Factory
     except ImportError:
         pass
     try:
-        import mysql_driver
+        import logviewer.mysql_driver as mysql_driver
         result['mysql'] = mysql_driver.MySQLDriver.Factory
     except ImportError:
         pass

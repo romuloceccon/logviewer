@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 
-from base_manager import *
+from logviewer.base_manager import *
 
 class BaseManagerTest(unittest.TestCase):
     class FakeManager(BaseManager):

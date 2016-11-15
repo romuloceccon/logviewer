@@ -4,7 +4,7 @@ import random
 import datetime
 from unittest.mock import Mock, MagicMock, patch
 
-from screen_buffer import ScreenBuffer
+from logviewer.screen_buffer import ScreenBuffer
 
 class ScreenBufferTest(unittest.TestCase):
     class Queue(object):

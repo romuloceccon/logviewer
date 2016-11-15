@@ -1,7 +1,7 @@
 import unittest
 import curses
 
-from text_input import TextInput
+from logviewer.text_input import TextInput
 
 class TextInputTest(unittest.TestCase):
     def test_should_initialize_text_input(self):

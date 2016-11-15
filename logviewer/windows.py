@@ -1,11 +1,11 @@
 import curses
 import datetime
 
-from screen_buffer import ScreenBuffer
-from screen_cursor import ScreenCursor
-from text_input import TextInput
-from utf8_parser import UTF8Parser
-import window_states
+from .screen_buffer import ScreenBuffer
+from .screen_cursor import ScreenCursor
+from .text_input import TextInput
+from .utf8_parser import UTF8Parser
+from . import window_states
 
 class Base(object):
     def __init__(self, window_manager):

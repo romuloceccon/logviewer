@@ -1,6 +1,6 @@
 import curses
 
-from screen_cursor import ScreenCursor
+from .screen_cursor import ScreenCursor
 
 class TextInput(object):
     def __init__(self, max_len, text=''):

@@ -1,6 +1,6 @@
 import re
 
-from screen_buffer import ScreenBuffer
+from .screen_buffer import ScreenBuffer
 
 class SQLDriver(ScreenBuffer.Driver):
     def __init__(self, level=None, facility=None, host=None, program=None,

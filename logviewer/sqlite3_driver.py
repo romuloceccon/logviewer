@@ -1,8 +1,8 @@
 import sqlite3
 import datetime
 
-import sql_driver
-import screen_buffer
+from . import sql_driver
+from . import screen_buffer
 
 class SQLite3Driver(sql_driver.SQLDriver):
     class Factory(object):

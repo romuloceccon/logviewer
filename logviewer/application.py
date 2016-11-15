@@ -5,11 +5,11 @@ import curses
 import datetime
 import struct
 
-from base_manager import BaseManager
-from screen_buffer import ScreenBuffer
-from text_input import TextInput
-from utf8_parser import UTF8Parser
-import windows
+from .base_manager import BaseManager
+from .screen_buffer import ScreenBuffer
+from .text_input import TextInput
+from .utf8_parser import UTF8Parser
+from . import windows
 
 class EventPoll(object):
     def __init__(self):

@@ -3,8 +3,8 @@ from unittest.mock import Mock, MagicMock, PropertyMock
 
 import curses
 
-from screen_buffer import ScreenBuffer
-from windows import *
+from logviewer.screen_buffer import ScreenBuffer
+from logviewer.windows import *
 
 class BaseTest(unittest.TestCase):
     def setUp(self):

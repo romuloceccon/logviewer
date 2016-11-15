@@ -2,7 +2,7 @@ import unittest
 
 import datetime
 
-import window_states
+from logviewer import window_states
 
 class FilterTest(unittest.TestCase):
     def test_should_create_filter_state(self):

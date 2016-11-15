@@ -1,7 +1,7 @@
 import calendar
 import datetime
 
-from screen_buffer import ScreenBuffer
+from .screen_buffer import ScreenBuffer
 
 class Filter(object):
     def __init__(self):

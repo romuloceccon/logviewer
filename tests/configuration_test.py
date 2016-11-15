@@ -3,8 +3,8 @@ import unittest
 import tempfile
 import os.path
 
-from configuration import Configuration
-import sqlite3_driver
+from logviewer.configuration import Configuration
+from logviewer import sqlite3_driver
 
 class ConfigurationTest(unittest.TestCase):
     def setUp(self):
